@@ -1,0 +1,203 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 220 50% 20%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 50% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 50% 20%;
+    --primary: 180 100% 40%; /* #00CEC2 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 35% 45%; /* #447596 */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 215 20% 95%;
+    --muted-foreground: 215 20% 45%;
+    --accent: 180 100% 40%; /* #00CEC2 */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 215 20% 85%;
+    --input: 215 20% 85%;
+    --ring: 180 100% 40%; /* #00CEC2 */
+    --radius: 0.75rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 220 50% 20%;
+    --sidebar-primary: 180 100% 40%; /* #00CEC2 */
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 20% 95%;
+    --sidebar-accent-foreground: 220 50% 20%;
+    --sidebar-border: 215 20% 85%;
+    --sidebar-ring: 180 100% 40%; /* #00CEC2 */
+  }
+
+  .dark {
+    --background: 220 50% 8%;
+    --foreground: 215 20% 95%;
+    --card: 220 50% 10%;
+    --card-foreground: 215 20% 95%;
+    --popover: 220 50% 10%;
+    --popover-foreground: 215 20% 95%;
+    --primary: 180 100% 50%; /* #00CEC2 - brighter for dark mode */
+    --primary-foreground: 220 50% 10%;
+    --secondary: 210 35% 55%; /* #447596 - brighter for dark mode */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 220 50% 20%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 180 100% 50%; /* #00CEC2 - brighter for dark mode */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 50% 25%;
+    --input: 220 50% 25%;
+    --ring: 180 100% 50%; /* #00CEC2 - brighter for dark mode */
+    --sidebar-background: 220 50% 10%;
+    --sidebar-foreground: 215 20% 95%;
+    --sidebar-primary: 180 100% 50%; /* #00CEC2 - brighter for dark mode */
+    --sidebar-primary-foreground: 220 50% 10%;
+    --sidebar-accent: 220 50% 20%;
+    --sidebar-accent-foreground: 215 20% 95%;
+    --sidebar-border: 220 50% 25%;
+    --sidebar-ring: 180 100% 50%; /* #00CEC2 - brighter for dark mode */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Almarai', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+    direction: rtl; /* Default to RTL for Arabic */
+  }
+  
+  /* RTL Support */
+  [dir="rtl"] {
+    direction: rtl;
+  }
+  
+  [dir="ltr"] {
+    direction: ltr;
+  }
+}
+
+@layer utilities {
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent;
+  }
+  
+  .gradient-bg {
+    @apply bg-gradient-to-br from-primary/10 via-secondary/5 to-accent/10;
+  }
+  
+  .section-padding {
+    @apply py-16 md:py-24 lg:py-32;
+  }
+  
+  .container-custom {
+    @apply container mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Semantic color utilities for better maintainability */
+  .btn-primary {
+    @apply bg-primary hover:bg-primary/90 text-primary-foreground;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary hover:bg-secondary/90 text-secondary-foreground;
+  }
+  
+  .icon-primary {
+    @apply text-primary-foreground;
+  }
+  
+  .icon-secondary {
+    @apply text-secondary-foreground;
+  }
+  
+  .text-inverse {
+    @apply text-primary-foreground;
+  }
+  
+  .bg-inverse {
+    @apply bg-primary;
+  }
+  
+  /* RTL-specific utilities */
+  [dir="rtl"] .ml-auto {
+    margin-left: 0;
+    margin-right: auto;
+  }
+
+  [dir="rtl"] .mr-auto {
+    margin-right: 0;
+    margin-left: auto;
+  }
+
+  [dir="rtl"] .text-left {
+    text-align: right;
+  }
+
+  [dir="rtl"] .text-right {
+    text-align: left;
+  }
+
+  /* Default RTL utilities for Arabic */
+  .ml-auto {
+    margin-left: auto;
+    margin-right: 0;
+  }
+
+  .mr-auto {
+    margin-right: auto;
+    margin-left: 0;
+  }
+
+  .text-left {
+    text-align: right;
+  }
+
+  .text-right {
+    text-align: left;
+  }
+
+  /* Override for LTR */
+  [dir="ltr"] .ml-auto {
+    margin-left: auto;
+    margin-right: 0;
+  }
+
+  [dir="ltr"] .mr-auto {
+    margin-right: auto;
+    margin-left: 0;
+  }
+
+  [dir="ltr"] .text-left {
+    text-align: left;
+  }
+
+  [dir="ltr"] .text-right {
+    text-align: right;
+  }
+
+  /* Button styles for cards page */
+  .main-btn {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 font-medium transition-colors;
+  }
+
+  .border-btn {
+    @apply border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md px-4 py-2 font-medium transition-colors;
+  }
+
+  .text-active {
+    @apply text-green-600;
+  }
+}

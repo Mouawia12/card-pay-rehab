@@ -1,0 +1,57 @@
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="secGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#dc2626;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#ef4444;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f87171;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="400" height="300" fill="url(#secGradient)"/>
+  
+  <!-- Shield -->
+  <g fill="white" opacity="0.9">
+    <!-- Main shield -->
+    <path d="M 200 60 L 150 80 L 150 160 Q 150 200 200 220 Q 250 200 250 160 L 250 80 Z" 
+          fill="rgba(255,255,255,0.2)" stroke="white" stroke-width="3"/>
+    
+    <!-- Shield inner design -->
+    <path d="M 200 80 L 170 95 L 170 150 Q 170 180 200 195 Q 230 180 230 150 L 230 95 Z" 
+          fill="none" stroke="white" stroke-width="2" opacity="0.6"/>
+    
+    <!-- Lock icon -->
+    <rect x="185" y="120" width="30" height="25" rx="4" fill="white"/>
+    <path d="M 195 120 Q 195 110 200 110 Q 205 110 205 120" fill="none" stroke="white" stroke-width="2"/>
+    <circle cx="200" cy="135" r="3" fill="url(#secGradient)"/>
+  </g>
+  
+  <!-- Security elements -->
+  <g fill="white" opacity="0.8">
+    <!-- Firewall -->
+    <rect x="80" y="200" width="60" height="40" rx="4" fill="rgba(255,255,255,0.3)" stroke="white" stroke-width="2"/>
+    <rect x="90" y="210" width="40" height="3" rx="1" fill="white"/>
+    <rect x="90" y="220" width="35" height="3" rx="1" fill="white"/>
+    <rect x="90" y="230" width="30" height="3" rx="1" fill="white"/>
+    
+    <!-- Encryption -->
+    <circle cx="200" cy="250" r="15" fill="rgba(255,255,255,0.3)" stroke="white" stroke-width="2"/>
+    <text x="200" y="255" fill="white" font-family="monospace" font-size="12" text-anchor="middle">🔒</text>
+    
+    <!-- Security check -->
+    <rect x="260" y="200" width="50" height="40" rx="4" fill="rgba(255,255,255,0.3)" stroke="white" stroke-width="2"/>
+    <circle cx="275" cy="215" r="6" fill="white"/>
+    <path d="M 270 215 L 273 218 L 280 210" fill="none" stroke="url(#secGradient)" stroke-width="2" stroke-linecap="round"/>
+    <text x="285" y="240" fill="white" font-family="sans-serif" font-size="10">Secure</text>
+  </g>
+  
+  <!-- Security text -->
+  <g fill="white" opacity="0.9">
+    <text x="50" y="50" fill="white" font-family="sans-serif" font-size="20" font-weight="bold">الأمان السيبراني</text>
+    <text x="50" y="70" fill="white" font-family="sans-serif" font-size="12">Cybersecurity & Protection</text>
+    
+    <text x="300" y="50" fill="white" font-family="sans-serif" font-size="14">🛡️ Firewall</text>
+    <text x="300" y="70" fill="white" font-family="sans-serif" font-size="14">🔐 Encryption</text>
+    <text x="300" y="90" fill="white" font-family="sans-serif" font-size="14">✅ Secure</text>
+  </g>
+</svg>

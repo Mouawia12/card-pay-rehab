@@ -1,0 +1,150 @@
+{
+  "common": {
+    "welcome": "مرحباً بك",
+    "loading": "جاري التحميل...",
+    "error": "خطأ",
+    "success": "نجح",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "save": "حفظ",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "back": "رجوع",
+    "next": "التالي",
+    "done": "تم",
+    "ok": "حسناً"
+  },
+  "auth": {
+    "login": {
+      "title": "مرحباً بك",
+      "subtitle": "قم بتسجيل الدخول للوصول إلى حسابك",
+      "phone": "رقم الهاتف",
+      "phonePlaceholder": "ادخل رقم الجوال",
+      "password": "كلمة المرور",
+      "passwordPlaceholder": "أدخل كلمة المرور",
+      "forgotPassword": "نسيت كلمة المرور؟",
+      "loginButton": "تسجيل الدخول",
+      "errorPhonePassword": "الرجاء إدخال رقم الهاتف وكلمة المرور",
+      "errorInvalid": "رقم الهاتف أو كلمة المرور غير صحيحة",
+      "contactHelp": "مشكلة في تسجيل الدخول؟",
+      "contactUs": "تواصل معنا"
+    },
+    "forgotPassword": {
+      "title": "استرجاع كلمة المرور",
+      "subtitle": "أدخل رقم هاتفك وسنرسل لك رمز لإعادة تعيين كلمة المرور",
+      "phone": "رقم الهاتف",
+      "phonePlaceholder": "ادخل رقم الجوال",
+      "sendCode": "إرسال الرمز",
+      "resendTimer": "أعد الإرسال خلال {time}",
+      "errorPhone": "الرجاء إدخال رقم الهاتف",
+      "backToLogin": "العودة لتسجيل الدخول",
+      "rememberPassword": "تذكرت كلمة المرور؟ العودة لتسجيل الدخول",
+      "infoMessage": "سيتم إرسال رمز مؤقت عبر رسالة نصية. تأكد من أن رقم الهاتف صحيح."
+    },
+    "verifyOtp": {
+      "title": "استرجاع كلمة المرور",
+      "subtitle": "أدخل رمز التحقق المرسل إلى رقم جوالك",
+      "instructions": "أدخل رمز التحقق المؤلف من 4 أرقام",
+      "phoneDisplay": "أرسلنا الرمز إلى {phone}",
+      "verify": "تحقق",
+      "resendCode": "إرسال مجدد",
+      "resendTimer": "أعد الإرسال خلال {time}",
+      "resendTimerWithPhone": "أعد الإرسال خلال {time} إلى {phone}",
+      "changePhone": "تغيير رقم الجوال",
+      "infoMessage": "قد يصل رمز التحقق خلال دقيقة. تأكد من أن رقم الجوال صحيح واستقبل الرسائل النصية.",
+      "errorIncomplete": "الرمز غير مكتمل. الرجاء إدخال جميع الأرقام.",
+      "errorInvalid": "الرمز غير صحيح. حاول مرة أخرى.",
+      "errorExpired": "انتهت صلاحية الرمز. أطلب رمزًا جديدًا.",
+      "errorPhoneNotRegistered": "رقم الجوال غير مسجل لدينا. الرجاء التأكد أو التسجيل أولاً.",
+      "errorNetwork": "تعذر إرسال الرمز. تحقق من اتصال الإنترنت وحاول مرة أخرى.",
+      "errorMaxAttempts": "تم تجاوز عدد محاولات التحقق. أعد الطلب بعد 15 دقيقة أو تواصل مع الدعم.",
+      "successVerify": "تم التحقق بنجاح. يمكنك الآن إنشاء كلمة مرور جديدة.",
+      "successResend": "تم إرسال رمز جديد إلى رقمك.",
+      "otpField1": "رمز التحقق رقم 1",
+      "otpField2": "رمز التحقق رقم 2",
+      "otpField3": "رمز التحقق رقم 3",
+      "otpField4": "رمز التحقق رقم 4"
+    },
+    "resetPassword": {
+      "title": "إنشاء كلمة مرور جديدة",
+      "subtitle": "أدخل كلمة مرور جديدة لحسابك",
+      "newPassword": "كلمة المرور الجديدة",
+      "newPasswordPlaceholder": "أدخل كلمة المرور الجديدة",
+      "confirmPassword": "تأكيد كلمة المرور",
+      "confirmPasswordPlaceholder": "أعد إدخال كلمة المرور",
+      "resetButton": "حفظ كلمة المرور",
+      "errorPasswordMismatch": "كلمتا المرور غير متطابقتين",
+      "errorPasswordWeak": "كلمة المرور يجب أن تكون 8 أحرف على الأقل",
+      "errorPasswordRequired": "الرجاء إدخال كلمة المرور",
+      "successReset": "تم تغيير كلمة المرور بنجاح",
+      "infoMessage": "اختر كلمة مرور قوية لحماية حسابك. تجنب استخدام المعلومات الشخصية."
+    },
+    "logout": {
+      "confirmTitle": "تأكيد",
+      "confirmMessage": "هل أنت متأكد من تسجيل الخروج؟",
+      "logoutButton": "تسجيل الخروج"
+    }
+  },
+  "scanner": {
+    "title": "مسح رمز QR",
+    "subtitle": "قم بمسح رمز QR لإضافة ختم جديد",
+    "startScanning": "ابدأ المسح",
+    "openCamera": "فتح الكاميرا",
+    "cameraDescription": "اضغط على الزر أدناه لفتح الكاميرا ومسح رمز QR",
+    "cameraPermissionRequired": "إذن الكاميرا مطلوب",
+    "cameraPermissionMessage": "يرجى السماح بالوصول إلى الكاميرا في إعدادات التطبيق",
+    "cameraDenied": "تم الرفض",
+    "cameraDeniedMessage": "لا يمكن الوصول إلى الكاميرا بدون إذن",
+    "cameraSettingsMessage": "يرجى السماح بالوصول إلى الكاميرا في إعدادات المتصفح",
+    "scanSuccess": "نجح المسح",
+    "scanSuccessMessage": "تمت إضافة السجل بنجاح",
+    "scanError": "حدث خطأ أثناء حفظ السجل",
+    "pointCamera": "وجه الكاميرا نحو رمز QR",
+    "tips": {
+      "title": "نصائح للمسح:",
+      "goodLighting": "تأكد من وجود إضاءة جيدة",
+      "steadyCamera": "حافظ على ثبات الكاميرا",
+      "clearCode": "تأكد من أن الرمز واضح وغير مشوه"
+    }
+  },
+  "records": {
+    "title": "History",
+    "empty": "لا يوجد سجل",
+    "emptySubtitle": "سيظهر السجل الخاص بك هنا",
+    "stampsAdded": "stamps added",
+    "cardId": "معرف البطاقة:",
+    "manager": "المدير:",
+    "unknown": "غير معروف"
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "accountInfo": "معلومات الحساب",
+    "language": "اللغة",
+    "arabic": "العربية",
+    "english": "الإنجليزية",
+    "version": "إصدار",
+    "logout": "تسجيل الخروج"
+  },
+  "tabs": {
+    "home": "الرئيسية",
+    "records": "السجل",
+    "settings": "الإعدادات"
+  },
+  "contactUs": {
+    "title": "تواصل معنا",
+    "subtitle": "نحن هنا للمساعدة. اترك رسالتك وسنرد عليك في أقرب وقت ممكن",
+    "name": "الاسم",
+    "namePlaceholder": "أدخل اسمك الكامل",
+    "email": "البريد الإلكتروني",
+    "emailPlaceholder": "ادخل البريد الإلكتروني",
+    "phone": "رقم الهاتف",
+    "phonePlaceholder": "ادخل رقم الجوال",
+    "message": "الرسالة",
+    "messagePlaceholder": "اكتب رسالتك هنا...",
+    "submitButton": "إرسال الرسالة",
+    "errorRequired": "الرجاء إدخال الاسم والبريد الإلكتروني والرسالة",
+    "errorEmail": "الرجاء إدخال بريد إلكتروني صحيح",
+    "successMessage": "شكراً لك! تم إرسال رسالتك بنجاح وسنرد عليك قريباً",
+    "contactInfo": "معلومات التواصل"
+  }
+}

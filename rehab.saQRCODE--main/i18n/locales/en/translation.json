@@ -1,0 +1,150 @@
+{
+  "common": {
+    "welcome": "Welcome",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "done": "Done",
+    "ok": "OK"
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome",
+      "subtitle": "Sign in to access your account",
+      "phone": "Phone Number",
+      "phonePlaceholder": "Enter phone number",
+      "password": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "forgotPassword": "Forgot password?",
+      "loginButton": "Sign In",
+      "errorPhonePassword": "Please enter phone number and password",
+      "errorInvalid": "Invalid phone number or password",
+      "contactHelp": "Having trouble signing in?",
+      "contactUs": "Contact Us"
+    },
+    "forgotPassword": {
+      "title": "Reset Password",
+      "subtitle": "Enter your phone number and we'll send you a code to reset your password",
+      "phone": "Phone Number",
+      "phonePlaceholder": "Enter phone number",
+      "sendCode": "Send Code",
+      "resendTimer": "Resend in {time}",
+      "errorPhone": "Please enter phone number",
+      "backToLogin": "Back to Sign In",
+      "rememberPassword": "Remember your password? Back to Sign In",
+      "infoMessage": "A temporary code will be sent via SMS. Make sure your phone number is correct."
+    },
+    "verifyOtp": {
+      "title": "Reset Password",
+      "subtitle": "Enter the verification code sent to your phone number",
+      "instructions": "Enter the 4-digit verification code",
+      "phoneDisplay": "We sent the code to {phone}",
+      "verify": "Verify",
+      "resendCode": "Resend Code",
+      "resendTimer": "Resend in {time}",
+      "resendTimerWithPhone": "Resend in {time} to {phone}",
+      "changePhone": "Change Phone Number",
+      "infoMessage": "The code may take a minute to arrive. Make sure your phone number is correct and can receive SMS.",
+      "errorIncomplete": "Code is incomplete. Please enter all digits.",
+      "errorInvalid": "Invalid code. Please try again.",
+      "errorExpired": "Code has expired. Request a new code.",
+      "errorPhoneNotRegistered": "Phone number is not registered with us. Please verify or register first.",
+      "errorNetwork": "Failed to send code. Check your internet connection and try again.",
+      "errorMaxAttempts": "Maximum verification attempts exceeded. Retry after 15 minutes or contact support.",
+      "successVerify": "Verification successful. You can now create a new password.",
+      "successResend": "New code sent to your number.",
+      "otpField1": "Verification code digit 1",
+      "otpField2": "Verification code digit 2",
+      "otpField3": "Verification code digit 3",
+      "otpField4": "Verification code digit 4"
+    },
+    "resetPassword": {
+      "title": "Create New Password",
+      "subtitle": "Enter a new password for your account",
+      "newPassword": "New Password",
+      "newPasswordPlaceholder": "Enter your new password",
+      "confirmPassword": "Confirm Password",
+      "confirmPasswordPlaceholder": "Re-enter your password",
+      "resetButton": "Save Password",
+      "errorPasswordMismatch": "Passwords do not match",
+      "errorPasswordWeak": "Password must be at least 8 characters",
+      "errorPasswordRequired": "Please enter a password",
+      "successReset": "Password changed successfully",
+      "infoMessage": "Choose a strong password to protect your account. Avoid using personal information."
+    },
+    "logout": {
+      "confirmTitle": "Confirm",
+      "confirmMessage": "Are you sure you want to sign out?",
+      "logoutButton": "Sign Out"
+    }
+  },
+  "scanner": {
+    "title": "Scan QR Code",
+    "subtitle": "Scan a QR code to add a new stamp",
+    "startScanning": "Start Scanning",
+    "openCamera": "Open Camera",
+    "cameraDescription": "Press the button below to open the camera and scan a QR code",
+    "cameraPermissionRequired": "Camera Permission Required",
+    "cameraPermissionMessage": "Please allow camera access in app settings",
+    "cameraDenied": "Permission Denied",
+    "cameraDeniedMessage": "Cannot access camera without permission",
+    "cameraSettingsMessage": "Please allow camera access in browser settings",
+    "scanSuccess": "Scan Successful",
+    "scanSuccessMessage": "Record added successfully",
+    "scanError": "An error occurred while saving the record",
+    "pointCamera": "Point camera at QR code",
+    "tips": {
+      "title": "Scanning Tips:",
+      "goodLighting": "Ensure good lighting",
+      "steadyCamera": "Keep the camera steady",
+      "clearCode": "Make sure the code is clear and not distorted"
+    }
+  },
+  "records": {
+    "title": "History",
+    "empty": "No Records",
+    "emptySubtitle": "Your records will appear here",
+    "stampsAdded": "stamps added",
+    "cardId": "Card ID:",
+    "manager": "Manager:",
+    "unknown": "Unknown"
+  },
+  "settings": {
+    "title": "Settings",
+    "accountInfo": "Account Information",
+    "language": "Language",
+    "arabic": "Arabic",
+    "english": "English",
+    "version": "Version",
+    "logout": "Sign Out"
+  },
+  "tabs": {
+    "home": "Home",
+    "records": "Records",
+    "settings": "Settings"
+  },
+  "contactUs": {
+    "title": "Contact Us",
+    "subtitle": "We're here to help. Leave your message and we'll get back to you as soon as possible",
+    "name": "Name",
+    "namePlaceholder": "Enter your full name",
+    "email": "Email",
+    "emailPlaceholder": "Enter email address",
+    "phone": "Phone Number",
+    "phonePlaceholder": "Enter phone number",
+    "message": "Message",
+    "messagePlaceholder": "Write your message here...",
+    "submitButton": "Send Message",
+    "errorRequired": "Please enter name, email, and message",
+    "errorEmail": "Please enter a valid email address",
+    "successMessage": "Thank you! Your message has been sent successfully and we'll get back to you soon",
+    "contactInfo": "Contact Information"
+  }
+}
