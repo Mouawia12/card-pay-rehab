@@ -19,7 +19,8 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->string('role')->default('merchant'); // admin | merchant | staff | customer
-            $table->foreignId('business_id')->nullable()->constrained()->nullOnDelete();
+            // ملاحظة: تُترك بدون قيد FK لتجنّب ترتيب الهجرات، يتم الربط بالمعرّف فقط.
+            $table->unsignedBigInteger('business_id')->nullable()->index();
             $table->string('avatar_url')->nullable();
             $table->boolean('is_active')->default(true);
             $table->rememberToken();

@@ -7,7 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ALERT_TYPE, Dialog } from 'react-native-alert-notification';
 import { getTextStyle } from '@/utils/textDirection';
 
@@ -28,6 +28,17 @@ export default function SettingsScreen() {
   const versionLabelStyle = getTextStyle(t('settings.version'));
 
   const handleLogout = () => {
+    // استخدام تأكيد بسيط على الويب لأن Dialog لا يعمل دائماً في المتصفح
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(t('auth.logout.confirmMessage'));
+      if (confirmed) {
+        logout().catch((err) => console.error('Logout error', err)).finally(() => {
+          router.replace('/login');
+        });
+      }
+      return;
+    }
+
     Dialog.show({
       type: ALERT_TYPE.WARNING,
       title: t('auth.logout.confirmTitle'),

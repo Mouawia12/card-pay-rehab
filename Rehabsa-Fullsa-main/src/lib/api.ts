@@ -21,8 +21,16 @@ export async function apiFetch<T>(path: string, options: FetchOptions = {}): Pro
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || "فشل الاتصال بالخادم");
+    let message = "";
+    try {
+      const parsed = await response.json();
+      message = parsed?.message || "";
+    } catch {
+      message = await response.text();
+    }
+    const errorMsg = message || `خطأ من الخادم (${response.status})`;
+    console.error("API error", response.status, errorMsg);
+    throw new Error(errorMsg);
   }
 
   // Some endpoints may return empty responses

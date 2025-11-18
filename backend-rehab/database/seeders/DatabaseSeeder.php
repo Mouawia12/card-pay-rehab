@@ -9,6 +9,8 @@ use App\Models\CardCustomer;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\SubscriptionPlan;
+use App\Models\Role;
+use App\Models\Permission;
 use App\Models\User;
 use App\Models\Transaction;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -37,6 +39,30 @@ class DatabaseSeeder extends Seeder
             'theme_secondary' => '#111827',
         ]);
 
+        // Roles & permissions
+        $roles = [
+            'admin' => Role::create(['name' => 'Admin', 'slug' => 'admin', 'description' => 'Full access']),
+            'merchant' => Role::create(['name' => 'Merchant', 'slug' => 'merchant', 'description' => 'Store owner']),
+            'staff' => Role::create(['name' => 'Staff', 'slug' => 'staff', 'description' => 'Branch staff']),
+        ];
+
+        $permissions = [
+            'manage_users' => Permission::create(['name' => 'Manage Users', 'slug' => 'manage_users']),
+            'manage_cards' => Permission::create(['name' => 'Manage Cards', 'slug' => 'manage_cards']),
+            'manage_customers' => Permission::create(['name' => 'Manage Customers', 'slug' => 'manage_customers']),
+            'view_reports' => Permission::create(['name' => 'View Reports', 'slug' => 'view_reports']),
+        ];
+
+        $roles['admin']->permissions()->sync(collect($permissions)->pluck('id'));
+        $roles['merchant']->permissions()->sync([
+            $permissions['manage_cards']->id,
+            $permissions['manage_customers']->id,
+            $permissions['view_reports']->id,
+        ]);
+        $roles['staff']->permissions()->sync([
+            $permissions['manage_customers']->id,
+        ]);
+
         $admin = User::create([
             'name' => 'Main Admin',
             'email' => 'admin@rehab-qr.com',
@@ -63,6 +89,10 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('password123'),
             'business_id' => $business->id,
         ]);
+
+        $admin->roles()->sync([$roles['admin']->id]);
+        $merchant->roles()->sync([$roles['merchant']->id]);
+        $staff->roles()->sync([$roles['staff']->id]);
 
         $plans = [
             [

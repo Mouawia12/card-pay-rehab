@@ -40,6 +40,7 @@ export const LoginPage = () => {
 
       navigate(redirectUrl);
     } catch (error: any) {
+      console.error("Login failed", error);
       toast.error(error?.message || t('auth.login.errorMessage'));
     } finally {
       setIsLoading(false);
