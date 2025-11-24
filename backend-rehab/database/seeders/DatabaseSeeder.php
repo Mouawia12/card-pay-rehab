@@ -9,14 +9,10 @@ use App\Models\CardCustomer;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\SubscriptionPlan;
-use App\Models\Role;
-use App\Models\Permission;
 use App\Models\User;
 use App\Models\Transaction;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
@@ -27,72 +23,28 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $business = Business::create([
-            'name' => 'Rehab QR',
-            'slug' => 'rehab-qr',
-            'email' => 'info@rehab-qr.com',
-            'phone' => '+966556023195',
-            'country' => 'Saudi Arabia',
-            'city' => 'Riyadh',
-            'currency' => 'SAR',
-            'theme_primary' => '#3b82f6',
-            'theme_secondary' => '#111827',
+        $business = Business::firstOrCreate(
+            ['slug' => 'rehab-qr'],
+            [
+                'name' => 'Rehab QR',
+                'email' => 'info@rehab-qr.com',
+                'phone' => '+966556023195',
+                'country' => 'Saudi Arabia',
+                'city' => 'Riyadh',
+                'currency' => 'SAR',
+                'theme_primary' => '#3b82f6',
+                'theme_secondary' => '#111827',
+            ]
+        );
+
+        $this->call([
+            RolePermissionSeeder::class,
+            AdminUserSeeder::class,
+            ControlPanelUserSeeder::class,
         ]);
 
-        // Roles & permissions
-        $roles = [
-            'admin' => Role::create(['name' => 'Admin', 'slug' => 'admin', 'description' => 'Full access']),
-            'merchant' => Role::create(['name' => 'Merchant', 'slug' => 'merchant', 'description' => 'Store owner']),
-            'staff' => Role::create(['name' => 'Staff', 'slug' => 'staff', 'description' => 'Branch staff']),
-        ];
-
-        $permissions = [
-            'manage_users' => Permission::create(['name' => 'Manage Users', 'slug' => 'manage_users']),
-            'manage_cards' => Permission::create(['name' => 'Manage Cards', 'slug' => 'manage_cards']),
-            'manage_customers' => Permission::create(['name' => 'Manage Customers', 'slug' => 'manage_customers']),
-            'view_reports' => Permission::create(['name' => 'View Reports', 'slug' => 'view_reports']),
-        ];
-
-        $roles['admin']->permissions()->sync(collect($permissions)->pluck('id'));
-        $roles['merchant']->permissions()->sync([
-            $permissions['manage_cards']->id,
-            $permissions['manage_customers']->id,
-            $permissions['view_reports']->id,
-        ]);
-        $roles['staff']->permissions()->sync([
-            $permissions['manage_customers']->id,
-        ]);
-
-        $admin = User::create([
-            'name' => 'Main Admin',
-            'email' => 'admin@rehab-qr.com',
-            'phone' => '+966500000000',
-            'role' => 'admin',
-            'password' => Hash::make('password123'),
-            'business_id' => $business->id,
-        ]);
-
-        $merchant = User::create([
-            'name' => 'Shop Owner',
-            'email' => 'merchant@rehab-qr.com',
-            'phone' => '+966511111111',
-            'role' => 'merchant',
-            'password' => Hash::make('password123'),
-            'business_id' => $business->id,
-        ]);
-
-        $staff = User::create([
-            'name' => 'Branch Manager',
-            'email' => 'staff@rehab-qr.com',
-            'phone' => '+966522222222',
-            'role' => 'staff',
-            'password' => Hash::make('password123'),
-            'business_id' => $business->id,
-        ]);
-
-        $admin->roles()->sync([$roles['admin']->id]);
-        $merchant->roles()->sync([$roles['merchant']->id]);
-        $staff->roles()->sync([$roles['staff']->id]);
+        $admin = User::where('email', 'admin@rehab-qr.com')->firstOrFail();
+        $merchant = User::where('email', 'merchant@rehab-qr.com')->firstOrFail();
 
         $plans = [
             [

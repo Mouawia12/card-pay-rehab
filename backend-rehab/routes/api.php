@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\BlogPostController;
 use App\Http\Controllers\Api\SubscriptionPlanController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\AdminDashboardController;
 
 Route::prefix('v1')->group(function () {
     Route::post('/auth/register', [AuthController::class, 'register']);
@@ -25,6 +26,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 
         Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
+        Route::get('/admin/summary', [AdminDashboardController::class, 'summary']);
 
         Route::apiResource('businesses', BusinessController::class);
         Route::apiResource('cards', CardController::class);
