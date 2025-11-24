@@ -14,6 +14,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  token: string | null;
   login: (phone: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
 }
@@ -34,6 +35,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Check authentication on mount
@@ -57,10 +59,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             name: payload.user.name,
             phone: payload.user.phone,
           });
+          setToken(token);
         } else {
           await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
           setUser(null);
+          setToken(null);
         }
+      } else {
+        setUser(null);
+        setToken(null);
       }
     } catch (error) {
       console.error('Error checking auth:', error);
@@ -83,6 +90,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const payload = await response.json();
       await AsyncStorage.setItem(AUTH_STORAGE_KEY, payload.token);
+      setToken(payload.token);
       setUser({
         id: payload.user.id,
         name: payload.user.name,
@@ -98,6 +106,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     try {
       await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+      setToken(null);
       setUser(null);
     } catch (error) {
       console.error('Logout error:', error);
@@ -108,6 +117,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     isAuthenticated: !!user,
     isLoading,
+    token,
     login,
     logout,
   };

@@ -461,25 +461,52 @@
       "successMessage": "Successfully signed in!",
       "errorMessage": "Sign in failed. Please check your credentials and try again."
     },
-    "admin": {
-      "login": {
-        "title": "Admin Sign In",
-        "subtitle": "Welcome to the admin dashboard",
-        "adminAccess": "Admin Access",
-        "email": "Email",
-        "emailPlaceholder": "Enter your admin email",
-        "password": "Password",
-        "passwordPlaceholder": "Enter your password",
-        "rememberMe": "Remember me",
-        "forgotPassword": "Forgot password?",
-        "submit": "Sign In as Admin",
-        "submitting": "Signing in...",
-        "notAdmin": "Not an admin?",
-        "backToLogin": "Back to regular login",
-        "successMessage": "Successfully signed in as admin!",
-        "errorMessage": "Admin sign in failed. Please check your credentials and try again."
-      }
+  "admin": {
+    "login": {
+      "title": "Admin Sign In",
+      "subtitle": "Welcome to the admin dashboard",
+      "adminAccess": "Admin Access",
+      "email": "Email",
+      "emailPlaceholder": "Enter your admin email",
+      "password": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "rememberMe": "Remember me",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign In as Admin",
+      "submitting": "Signing in...",
+      "notAdmin": "Not an admin?",
+      "backToLogin": "Back to regular login",
+      "successMessage": "Successfully signed in as admin!",
+      "errorMessage": "Admin sign in failed. Please check your credentials and try again."
     },
+    "dashboard": {
+      "title": "Admin Dashboard",
+      "stats": {
+        "totalStores": "Total Stores",
+        "totalUsers": "Total Users",
+        "totalCards": "Total Cards",
+        "totalCustomers": "Total Customers",
+        "totalTransactions": "Total Transactions",
+        "totalRevenue": "Total Revenue"
+      },
+      "charts": {
+        "monthlyGrowth": "Monthly Growth",
+        "storesAndRevenue": "Stores and Revenue",
+        "usersByRole": "Users by Role",
+        "subscriptionsDistribution": "Distribution"
+      },
+      "latest": {
+        "title": "Latest activity",
+        "transactions": "Latest transactions",
+        "stores": "Latest stores"
+      },
+      "subtitle": "Overview of all businesses, users, and revenue",
+      "export": "Export",
+      "error": "Failed to load dashboard data",
+      "noData": "No data available",
+      "unknown": "Unknown"
+    }
+  },
     "register": {
       "title": "Create New Account",
       "subtitle": "Join us and start your journey with digital loyalty cards",
@@ -973,39 +1000,31 @@
     },
     "dashboard": {
       "title": "Admin Dashboard",
-      "selectDate": "Select Date",
-      "periods": {
-        "day": "Day",
-        "week": "Week",
-        "month": "Month",
-        "year": "Year",
-        "allTime": "All Time"
-      },
+      "subtitle": "Overview of all businesses, users, and revenue",
+      "export": "Export",
+      "error": "Failed to load dashboard data",
+      "noData": "No data available",
+      "unknown": "Unknown",
       "stats": {
         "totalStores": "Total Stores",
-        "activeSubscriptions": "Active Subscriptions",
-        "monthlyRevenue": "Monthly Revenue",
         "totalUsers": "Total Users",
-        "newStoresThisMonth": "New Stores This Month",
-        "activeUsers": "Active Users",
-        "totalRevenue": "Total Revenue",
-        "fromLastMonth": "from last month"
+        "totalCards": "Total Cards",
+        "totalCustomers": "Total Customers",
+        "totalTransactions": "Total Transactions",
+        "totalRevenue": "Total Revenue"
       },
       "charts": {
         "monthlyGrowth": "Monthly Growth",
-        "lastTenMonths": "Last 10 Months",
-        "subscriptionDistribution": "Subscription Distribution",
-        "totalSubscriptions": "Total Subscriptions",
-        "basicPlan": "Basic",
-        "advancedPlan": "Advanced",
-        "premiumPlan": "Premium"
+        "storesAndRevenue": "Stores and Revenue",
+        "usersByRole": "Users by Role",
+        "subscriptionsDistribution": "Distribution"
       },
-      "recentSubscriptions": "Recent Subscriptions",
-      "topActiveStores": "Top Active Stores",
       "viewAll": "View All",
-      "customers": "customers",
-      "cards": "cards",
-      "monthlyRevenue": "Monthly Revenue"
+      "latest": {
+        "title": "Latest activity",
+        "transactions": "Latest transactions",
+        "stores": "Latest stores"
+      }
     },
     "stores": {
       "title": "Stores Management",

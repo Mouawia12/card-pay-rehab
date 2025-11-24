@@ -35,19 +35,12 @@ import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
 import { fetchCustomers } from "@/lib/api";
 
-const fallbackCustomers = [
-  { id: "1", name: "توفيق حسن لغبي", phone: "+966055180666", template: "مغاسل وتلميع تذكار", currentStamps: 0, totalStamps: 0, availableRewards: 0, totalRewards: 0, cardInstalled: true, birthDate: "", lastUpdate: "10/22/2025 4:55:43 PM", createdAt: "10/22/2025 4:55:43 PM" },
-  { id: "2", name: "مداوي القحطاني", phone: "+966580005528", template: "مغاسل وتلميع تذكار", currentStamps: 1, totalStamps: 1, availableRewards: 0, totalRewards: 0, cardInstalled: true, birthDate: "", lastUpdate: "10/22/2025 4:54:40 PM", createdAt: "10/22/2025 4:53:52 PM" },
-  { id: "3", name: "سعيد", phone: "+966551047087", template: "مغاسل وتلميع تذكار", currentStamps: 1, totalStamps: 1, availableRewards: 0, totalRewards: 0, cardInstalled: true, birthDate: "", lastUpdate: "10/22/2025 2:23:08 PM", createdAt: "10/22/2025 2:22:39 PM" },
-  { id: "4", name: "ابو حاتم", phone: "+966569941511", template: "مغاسل وتلميع تذكار", currentStamps: 1, totalStamps: 1, availableRewards: 0, totalRewards: 0, cardInstalled: true, birthDate: "", lastUpdate: "10/22/2025 12:27:07 PM", createdAt: "10/22/2025 12:25:06 PM" }
-];
-
 export function CustomersPage() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { isRTL } = useDirection();
   const isArabic = i18n.language === 'ar';
-  const [customers, setCustomers] = React.useState(fallbackCustomers);
+  const [customers, setCustomers] = React.useState<any[]>([]);
   const [loadingCustomers, setLoadingCustomers] = React.useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deleteBulkDialogOpen, setDeleteBulkDialogOpen] = React.useState(false);
@@ -73,10 +66,13 @@ export function CustomersPage() {
           createdAt: customer.created_at || "",
         }));
 
-        setCustomers(normalized.length ? normalized : fallbackCustomers);
+        setCustomers(normalized);
+        if (!normalized.length) {
+          toast.info(t("dashboardPages.customers.noCustomers") || "لا يوجد عملاء بعد");
+        }
       } catch (error) {
         console.error("Failed to fetch customers", error);
-        setCustomers(fallbackCustomers);
+        toast.error(t("dashboardPages.customers.loadError") || "تعذر تحميل العملاء");
       } finally {
         setLoadingCustomers(false);
       }

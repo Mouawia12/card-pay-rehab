@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from './AuthContext';
 
 const STORAGE_KEY = 'REHAB_QR_RECORDS';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
 export interface Record {
   id: string;
@@ -38,51 +40,51 @@ interface StorageProviderProps {
 export const StorageProvider: React.FC<StorageProviderProps> = ({ children }) => {
   const [records, setRecords] = useState<Record[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { token } = useAuth();
 
-  // Load records on mount
+  // Load records when auth token changes
   useEffect(() => {
     loadRecords();
-  }, []);
+  }, [token]);
 
   const loadRecords = async () => {
     try {
       setIsLoading(true);
+      if (!token) {
+        setRecords([]);
+        return;
+      }
+
+      // Try to fetch from API first
+      const response = await fetch(`${API_URL}/transactions`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error ${response.status}`);
+      }
+
+      const payload = await response.json();
+      const mapped: Record[] = (payload?.data || []).map((item: any) => ({
+        id: String(item.id),
+        date: item.happened_at || new Date().toISOString(),
+        title: item.note || item.type || 'Transaction',
+        cardId: item.card?.card_code || item.reference || 'N/A',
+        name: item.customer?.name || 'Unknown',
+        manager: item.product?.name || 'QR Manager',
+      }));
+
+      setRecords(mapped);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+    } catch (error) {
+      console.error('Error loading records:', error);
+      // fallback to cached data if API fails
       const storedData = await AsyncStorage.getItem(STORAGE_KEY);
       if (storedData) {
         setRecords(JSON.parse(storedData));
-      } else {
-        // For development: Add sample data if no records exist
-        const sampleRecords: Record[] = [
-          {
-            id: `1-${Date.now()}`,
-            date: new Date('2025-01-15').toISOString(),
-            title: '1 stamps added',
-            cardId: 'QR12345678901234567890',
-            name: 'Abdoulkream Alahmrei',
-            manager: 'Hussain Ali',
-          },
-          {
-            id: `2-${Date.now() + 1}`,
-            date: new Date('2025-01-20').toISOString(),
-            title: '1 stamps added',
-            cardId: 'QR98765432109876543210',
-            name: 'John Smith',
-            manager: 'Hussain Ali',
-          },
-          {
-            id: `3-${Date.now() + 2}`,
-            date: new Date('2025-01-25').toISOString(),
-            title: '1 stamps added',
-            cardId: 'QR45678901234567890123',
-            name: 'Sarah Johnson',
-            manager: 'Hussain Ali',
-          },
-        ];
-        setRecords(sampleRecords);
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(sampleRecords));
       }
-    } catch (error) {
-      console.error('Error loading records:', error);
     } finally {
       setIsLoading(false);
     }
@@ -99,12 +101,32 @@ export const StorageProvider: React.FC<StorageProviderProps> = ({ children }) =>
   };
 
   const addRecord = async (record: Omit<Record, 'id'>) => {
-    const newRecord: Record = {
-      ...record,
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    };
-    const updatedRecords = [newRecord, ...records];
-    await saveRecords(updatedRecords);
+    if (!token) {
+      throw new Error('No auth token');
+    }
+
+    // send to API
+    const response = await fetch(`${API_URL}/transactions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        type: 'stamp_awarded',
+        amount: 0,
+        currency: 'SAR',
+        reference: record.cardId,
+        note: record.title,
+        happened_at: record.date,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to add record (${response.status})`);
+    }
+
+    await loadRecords();
   };
 
   const deleteRecord = async (id: string) => {

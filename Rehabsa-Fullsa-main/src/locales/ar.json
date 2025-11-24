@@ -581,6 +581,52 @@
       "invalidCountryCode": "مفتاح الدولة غير صحيح"
     }
   },
+  "admin": {
+    "login": {
+      "title": "تسجيل دخول الأدمن",
+      "subtitle": "مرحباً بك في لوحة تحكم المسؤول",
+      "adminAccess": "وصول الأدمن",
+      "email": "البريد الإلكتروني",
+      "emailPlaceholder": "أدخل بريد الأدمن",
+      "password": "كلمة المرور",
+      "passwordPlaceholder": "أدخل كلمة المرور",
+      "rememberMe": "تذكرني",
+      "forgotPassword": "نسيت كلمة المرور؟",
+      "submit": "تسجيل الدخول كأدمن",
+      "submitting": "جاري تسجيل الدخول...",
+      "notAdmin": "لست أدمن؟",
+      "backToLogin": "الرجوع لتسجيل الدخول العادي",
+      "successMessage": "تم تسجيل الدخول كأدمن بنجاح!",
+      "errorMessage": "فشل تسجيل الدخول، تحقق من البيانات وحاول مرة أخرى."
+    },
+    "dashboard": {
+      "title": "لوحة تحكم المسؤول",
+      "subtitle": "نظرة شاملة على المتاجر والمستخدمين والإيرادات",
+      "export": "تصدير",
+      "error": "تعذر تحميل بيانات اللوحة",
+      "noData": "لا توجد بيانات متاحة",
+      "unknown": "غير معروف",
+      "stats": {
+        "totalStores": "إجمالي المتاجر",
+        "totalUsers": "إجمالي المستخدمين",
+        "totalCards": "إجمالي البطاقات",
+        "totalCustomers": "إجمالي العملاء",
+        "totalTransactions": "إجمالي المعاملات",
+        "totalRevenue": "إجمالي الإيرادات"
+      },
+      "charts": {
+        "monthlyGrowth": "النمو الشهري",
+        "storesAndRevenue": "المتاجر والإيرادات",
+        "usersByRole": "المستخدمون حسب الدور",
+        "subscriptionsDistribution": "توزيع الأدوار"
+      },
+      "latest": {
+        "title": "أحدث الأنشطة",
+        "transactions": "أحدث المعاملات",
+        "stores": "أحدث المتاجر"
+      }
+    }
+  },
   "subscription": {
     "title": "إتمام الاشتراك",
     "subtitle": "أكمل اشتراكك للوصول إلى جميع المميزات",
@@ -970,39 +1016,31 @@
     },
     "dashboard": {
       "title": "لوحة تحكم المسؤول",
-      "selectDate": "اختر التاريخ",
-      "periods": {
-        "day": "يوم",
-        "week": "أسبوع",
-        "month": "شهر",
-        "year": "سنة",
-        "allTime": "كل الوقت"
-      },
       "stats": {
         "totalStores": "إجمالي المتاجر",
-        "activeSubscriptions": "الاشتراكات النشطة",
-        "monthlyRevenue": "الإيرادات الشهرية",
         "totalUsers": "إجمالي المستخدمين",
-        "newStoresThisMonth": "متاجر جديدة هذا الشهر",
-        "activeUsers": "المستخدمين النشطين",
-        "totalRevenue": "إجمالي الإيرادات",
-        "fromLastMonth": "من الشهر الماضي"
+        "totalCards": "إجمالي البطاقات",
+        "totalCustomers": "إجمالي العملاء",
+        "totalTransactions": "إجمالي المعاملات",
+        "totalRevenue": "إجمالي الإيرادات"
       },
       "charts": {
         "monthlyGrowth": "النمو الشهري",
-        "lastTenMonths": "آخر 10 أشهر",
-        "subscriptionDistribution": "توزيع الاشتراكات",
-        "totalSubscriptions": "إجمالي الاشتراكات",
-        "basicPlan": "الأساسية",
-        "advancedPlan": "المتقدمة",
-        "premiumPlan": "المميزة"
+        "storesAndRevenue": "المتاجر والإيرادات",
+        "usersByRole": "المستخدمون حسب الدور",
+        "subscriptionsDistribution": "توزيع الأدوار"
       },
-      "recentSubscriptions": "آخر الاشتراكات",
-      "topActiveStores": "أكثر المتاجر نشاطاً",
       "viewAll": "عرض الكل",
-      "customers": "عملاء",
-      "cards": "بطاقات",
-      "monthlyRevenue": "الإيرادات الشهرية"
+      "latest": {
+        "title": "أحدث الأنشطة",
+        "transactions": "أحدث المعاملات",
+        "stores": "أحدث المتاجر"
+      },
+      "subtitle": "نظرة شاملة على المتاجر والمستخدمين والإيرادات",
+      "export": "تصدير",
+      "error": "تعذر تحميل بيانات اللوحة",
+      "noData": "لا توجد بيانات متاحة",
+      "unknown": "غير معروف"
     },
     "stores": {
       "title": "إدارة المتاجر",

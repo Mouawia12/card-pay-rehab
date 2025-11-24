@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
 import { useTheme } from "@/hooks/useTheme";
 import { useState } from "react";
+import { logoutApi } from "@/lib/api";
 import {
   Sidebar,
   SidebarContent,
@@ -92,12 +93,15 @@ export function DashboardSidebar() {
 
   const menuItems = getMenuItems();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsLoggingOut(true);
-    // يمكن إضافة تأخير قصير لإظهار المعلم
-    setTimeout(() => {
+    try {
+      await logoutApi();
+    } catch (err) {
+      console.error("Logout failed", err);
+    } finally {
       window.location.href = "/login";
-    }, 500);
+    }
   };
 
   return (

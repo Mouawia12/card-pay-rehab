@@ -24,6 +24,7 @@ import { SubscriptionSuccessPage } from "./pages/SubscriptionSuccessPage";
 import { SubscriptionFailurePage } from "./pages/SubscriptionFailurePage";
 import NotFound from "./pages/NotFound";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { RequireAuth } from "./components/auth/RequireAuth";
 
 const queryClient = new QueryClient();
 
@@ -31,13 +32,17 @@ const AppContent = () => {
   useDirection(); // Handle RTL/LTR direction based on language
   
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <ScrollToTop />
-      <Routes>
+      <Routes future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Route path="/" element={<Index />} />
         <Route path="/blog" element={<Blog />} />
-        <Route path="/dashboard/*" element={<Dashboard />} />
-        <Route path="/admin/*" element={<Admin />} />
+        <Route element={<RequireAuth allowedRoles={["admin", "merchant", "staff"]} redirectTo="/login" />}>
+          <Route path="/dashboard/*" element={<Dashboard />} />
+        </Route>
+        <Route element={<RequireAuth allowedRoles={["admin"]} redirectTo="/admin/login" />}>
+          <Route path="/admin/*" element={<Admin />} />
+        </Route>
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
         <Route path="/cookie-policy" element={<CookiePolicy />} />

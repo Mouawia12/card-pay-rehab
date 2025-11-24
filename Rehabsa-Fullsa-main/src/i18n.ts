@@ -15,12 +15,15 @@ const resources = {
   }
 };
 
+const storedLanguage = typeof window !== 'undefined' ? localStorage.getItem('i18nextLng') : null;
+const initialLanguage = storedLanguage || 'ar';
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources,
-    lng: 'en', // Default language to English
+    lng: initialLanguage,
     fallbackLng: 'en',
     debug: false,
     

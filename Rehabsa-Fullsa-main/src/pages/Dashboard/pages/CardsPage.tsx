@@ -6,42 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
 import { useNavigate } from "react-router-dom";
 import { fetchCards } from "@/lib/api";
-
-// البطاقات الافتراضية
-const defaultCards = [
-  {
-    id: 1,
-    name: "نادي اللياقة النخبة",
-    title: "تدرب وادخر",
-    description: "استمتع بمرافقنا الفاخرة واحصل على مكافآت حصرية!",
-    cardId: "477-398-475-609",
-    issueDate: new Date("2025-07-08").toISOString(),
-    expiryDate: new Date("2027-08-30").toISOString(),
-    bgColor: "#3498DB",
-    bgOpacity: 0.87,
-    bgImage: "https://reward-loyalty-demo.nowsquare.com/files/126/conversions/1-sm.jpg",
-    textColor: "#ffffff",
-    status: "نشط",
-    currentStage: 2,
-    totalStages: 5,
-  },
-  {
-    id: 2,
-    name: "مغاسل وتلميع تذكار",
-    title: "غسيل احترافي",
-    description: "احصل على خدمات الغسيل والتلميع بجودة عالية ومكافآت مميزة",
-    cardId: "123-456-789-012",
-    issueDate: new Date("2025-01-15").toISOString(),
-    expiryDate: new Date("2026-01-15").toISOString(),
-    bgColor: "#1E324A",
-    bgOpacity: 0.9,
-    bgImage: "",
-    textColor: "#ffffff",
-    status: "نشط",
-    currentStage: 1,
-    totalStages: 4,
-  },
-];
+import { toast } from "sonner";
 
 export function CardsPage() {
   const { t } = useTranslation();
@@ -50,7 +15,7 @@ export function CardsPage() {
   const [cards, setCards] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // دالة لتحميل البطاقات من الباك اند مع الاعتماد على البيانات الافتراضية كنسخة احتياطية
+  // تحميل البطاقات من الباك اند مباشرةً (بدون بيانات تجريبية)
   const loadCards = async () => {
     setIsLoading(true);
     try {
@@ -72,10 +37,13 @@ export function CardsPage() {
         totalStages: card.total_stages,
       }));
 
-      setCards(remoteCards.length ? remoteCards : defaultCards);
+      setCards(remoteCards);
+      if (!remoteCards.length) {
+        toast.info(t("dashboardPages.cards.noCards") || "لا توجد بطاقات حتى الآن");
+      }
     } catch (error) {
       console.error("Failed to load cards", error);
-      setCards(defaultCards);
+      toast.error(t("dashboardPages.cards.loadError") || "تعذر تحميل البطاقات");
     } finally {
       setIsLoading(false);
     }

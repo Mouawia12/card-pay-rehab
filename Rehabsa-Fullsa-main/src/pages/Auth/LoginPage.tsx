@@ -21,8 +21,22 @@ export const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Get redirect URL from query parameters
-  const redirectUrl = searchParams.get('redirect') || '/dashboard';
+  const redirectUrl = searchParams.get("redirect");
+
+  const getRoleRedirect = (role?: string | null) => {
+    const normalizedRole = role?.toLowerCase();
+    switch (normalizedRole) {
+      case "admin":
+        return "/admin";
+      case "merchant":
+      case "staff":
+        return "/dashboard";
+      case "customer":
+        return "/";
+      default:
+        return "/dashboard";
+    }
+  };
 
   const {
     register,
@@ -30,15 +44,21 @@ export const LoginPage = () => {
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      rememberMe: false,
+    },
   });
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      await loginApi(data.email, data.password);
+      const result = await loginApi(data.email, data.password);
       toast.success(t('auth.login.successMessage'));
 
-      navigate(redirectUrl);
+      const targetRoute = redirectUrl || getRoleRedirect(result.user?.role);
+      navigate(targetRoute, { replace: true });
     } catch (error: any) {
       console.error("Login failed", error);
       toast.error(error?.message || t('auth.login.errorMessage'));
@@ -105,7 +125,7 @@ export const LoginPage = () => {
           <div className="flex items-center space-x-2">
             <Checkbox
               id="rememberMe"
-              {...register("rememberMe")}
+              {...register("rememberMe", { valueAsBoolean: true })}
             />
             <Label htmlFor="rememberMe" className="text-sm text-muted-foreground">
               {t('auth.login.rememberMe')}

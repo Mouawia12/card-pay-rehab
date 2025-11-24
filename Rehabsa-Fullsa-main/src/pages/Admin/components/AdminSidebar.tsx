@@ -4,6 +4,7 @@ import { useDirection } from "@/hooks/useDirection";
 import { useTheme } from "@/hooks/useTheme";
 import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { logoutApi } from "@/lib/api";
 import {
   Sidebar,
   SidebarContent,
@@ -148,12 +149,15 @@ export function AdminSidebar() {
     setIsSiteMenuOpen((prev) => !prev);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setIsLoggingOut(true);
-    // يمكن إضافة تأخير قصير لإظهار المعلم
-    setTimeout(() => {
+    try {
+      await logoutApi();
+    } catch (err) {
+      console.error("Logout failed", err);
+    } finally {
       window.location.href = "/admin/login";
-    }, 500);
+    }
   };
 
   return (

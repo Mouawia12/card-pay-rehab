@@ -14,10 +14,20 @@ import {
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
+import { logoutApi } from "@/lib/api";
 
 export function AdminHeader() {
   const { t } = useTranslation();
   const { isRTL } = useDirection();
+  const handleLogout = async () => {
+    try {
+      await logoutApi();
+    } catch (err) {
+      console.error("Logout failed", err);
+    } finally {
+      window.location.href = "/admin/login";
+    }
+  };
 
   return (
     <header className={`sticky top-0 z-40 flex h-16 items-center gap-2 border-b border-border bg-card/95 backdrop-blur-md shadow-md px-4 ${isRTL ? 'font-arabic' : 'font-sans'} flex-shrink-0`} dir={isRTL ? "rtl" : "ltr"}>
@@ -74,7 +84,10 @@ export function AdminHeader() {
               {t("admin.header.settings")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className={`text-red-600 ${isRTL ? 'text-right' : 'text-left'}`}>
+            <DropdownMenuItem
+              onSelect={handleLogout}
+              className={`text-red-600 ${isRTL ? 'text-right' : 'text-left'}`}
+            >
               {t("admin.header.logout")}
             </DropdownMenuItem>
           </DropdownMenuContent>
