@@ -9,36 +9,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Save, User } from "lucide-react";
 import { toast } from "sonner";
-
-// بيانات وهمية للعميل
-const customerData = {
-  id: "lCYhBlpzmqQ4etUHVvOh",
-  name: "توفيق حسن لغبي",
-  phone: "+966055180666",
-  email: "tawfiq@example.com",
-  template: "مغاسل وتلميع تذكار",
-  currentStamps: 0,
-  totalStamps: 0,
-  availableRewards: 0,
-  totalRewards: 0,
-  cardInstalled: true,
-  birthDate: "1990-05-15",
-  gender: "male",
-  address: "الرياض، المملكة العربية السعودية",
-};
+import { fetchCustomer, updateCustomer, type CustomerPayload } from "@/lib/api";
 
 export function EditCustomerPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [formData, setFormData] = React.useState({
-    name: customerData.name,
-    phone: customerData.phone,
-    email: customerData.email,
-    birthDate: customerData.birthDate,
-    gender: customerData.gender,
-    address: customerData.address,
-    template: customerData.template,
+    name: "",
+    phone: "",
+    email: "",
+    birthDate: "",
+    language: "ar",
+    gender: "",
+    address: "",
+    template: "",
   });
 
   const handleInputChange = (field: string, value: string) => {
@@ -48,7 +34,35 @@ export function EditCustomerPage() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  React.useEffect(() => {
+    const loadCustomer = async () => {
+      if (!id) return;
+      setIsLoading(true);
+      try {
+        const response = await fetchCustomer(id);
+        const detail = response.data;
+        const metadata = detail.metadata ?? {};
+        setFormData({
+          name: detail.name,
+          phone: detail.phone,
+          email: detail.email ?? "",
+          birthDate: detail.birth_date ?? "",
+          language: detail.language ?? "ar",
+          gender: (metadata.gender as string) ?? "",
+          address: (metadata.address as string) ?? "",
+          template: (metadata.template as string) ?? "",
+        });
+      } catch {
+        toast.error("تعذر تحميل بيانات العميل");
+        navigate("/dashboard/customers");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadCustomer();
+  }, [id, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // التحقق من البيانات المطلوبة
@@ -59,21 +73,29 @@ export function EditCustomerPage() {
       return;
     }
 
-    // محاكاة تحديث البيانات
-    toast.loading("جاري تحديث بيانات العميل...", {
-      description: "يرجى الانتظار"
-    });
-
-    setTimeout(() => {
-      toast.dismiss();
-      toast.success("تم تحديث بيانات العميل بنجاح!", {
-        description: `تم حفظ التغييرات للعميل ${formData.name}`,
-        action: {
-          label: "عرض التفاصيل",
-          onClick: () => navigate(`/dashboard/customers/view/${id}`)
-        }
-      });
-    }, 2000);
+    if (!id) return;
+    setIsSubmitting(true);
+    try {
+      const payload: CustomerPayload = {
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email || undefined,
+        birth_date: formData.birthDate || undefined,
+        language: formData.language || undefined,
+        metadata: {
+          gender: formData.gender || undefined,
+          address: formData.address || undefined,
+          template: formData.template || undefined,
+        },
+      };
+      await updateCustomer(id, payload);
+      toast.success("تم تحديث بيانات العميل بنجاح!");
+      navigate(`/dashboard/customers/view/${id}`);
+    } catch (error: any) {
+      toast.error(error?.message || "حدث خطأ أثناء التحديث");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleBack = () => {
@@ -98,7 +120,7 @@ export function EditCustomerPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline">ID: {customerData.id}</Badge>
+          <Badge variant="outline">ID: {id}</Badge>
         </div>
       </div>
 
@@ -108,6 +130,9 @@ export function EditCustomerPage() {
             <CardTitle>معلومات العميل</CardTitle>
           </CardHeader>
           <CardContent>
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground">جاري تحميل بيانات العميل...</p>
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Personal Information */}
               <div className="space-y-4">
@@ -151,6 +176,18 @@ export function EditCustomerPage() {
                       value={formData.birthDate}
                       onChange={(e) => handleInputChange("birthDate", e.target.value)}
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="language">اللغة</Label>
+                    <Select value={formData.language} onValueChange={(value) => handleInputChange("language", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="اختر اللغة" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ar">العربية</SelectItem>
+                        <SelectItem value="en">English</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="gender">الجنس</Label>
@@ -219,12 +256,13 @@ export function EditCustomerPage() {
                 <Button type="button" variant="outline" onClick={handleBack}>
                   إلغاء
                 </Button>
-                <Button type="submit" className="flex items-center gap-2">
+                <Button type="submit" className="flex items-center gap-2" disabled={isSubmitting}>
                   <Save className="h-4 w-4" />
-                  حفظ التغييرات
+                  {isSubmitting ? "جاري الحفظ..." : "حفظ التغييرات"}
                 </Button>
               </div>
             </form>
+            )}
           </CardContent>
         </Card>
       </div>

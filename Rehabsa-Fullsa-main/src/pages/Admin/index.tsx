@@ -5,6 +5,7 @@ import { AdminHeader } from "./components/AdminHeader";
 import { AdminContent } from "./components/AdminContent";
 import { StoresPage } from "./pages/StoresPage";
 import { StoreDetailsPage } from "./pages/StoreDetailsPage";
+import { StoreFormPage } from "./pages/StoreFormPage";
 import { SubscriptionsPage } from "./pages/SubscriptionsPage";
 import { MarketingPage } from "./pages/MarketingPage";
 import { UsersPage } from "./pages/UsersPage";
@@ -45,7 +46,9 @@ export default function Admin() {
             <Routes>
               <Route path="/" element={<AdminContent />} />
               <Route path="/stores" element={<StoresPage />} />
+              <Route path="/stores/add" element={<StoreFormPage />} />
               <Route path="/stores/:id" element={<StoreDetailsPage />} />
+              <Route path="/stores/:id/edit" element={<StoreFormPage />} />
               <Route path="/subscriptions" element={<SubscriptionsPage />} />
               <Route path="/marketing" element={<MarketingPage />} />
               <Route path="/users" element={<UsersPage />} />

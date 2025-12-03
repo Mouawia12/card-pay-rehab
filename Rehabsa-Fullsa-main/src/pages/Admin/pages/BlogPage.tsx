@@ -1,5 +1,5 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,6 +21,7 @@ import {
   MessageSquare,
   FileText,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -43,383 +44,398 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  createBlogPost,
+  deleteBlogPost,
+  fetchBlogCategories,
+  fetchBlogPost,
+  fetchBlogPosts,
+  updateBlogPost,
+  type BlogCategory,
+  type BlogPostRecord,
+} from "@/lib/api";
+import type { CheckedState } from "@radix-ui/react-checkbox";
 
-// Mock data for blog posts
-const blogPosts = [
-  {
-    id: "post-1",
-    title: "أفضل الممارسات في إدارة المتاجر الإلكترونية",
-    titleEn: "Best Practices for E-commerce Store Management",
-    content: "في هذا المقال سنتحدث عن أفضل الممارسات التي يجب اتباعها عند إدارة المتاجر الإلكترونية...",
-    author: "أحمد محمد",
-    category: "إدارة الأعمال",
-    categoryEn: "Business Management",
-    status: "published",
-    comments: 15,
-    views: 1250,
-    publishDate: "2024-12-15",
-    lastModified: "2024-12-15",
-    tags: ["إدارة", "متاجر", "نصائح"],
-    featured: true
-  },
-  {
-    id: "post-2",
-    title: "كيفية زيادة مبيعاتك عبر الإنترنت",
-    titleEn: "How to Increase Your Online Sales",
-    content: "هناك عدة استراتيجيات يمكنك استخدامها لزيادة مبيعاتك عبر الإنترنت...",
-    author: "فاطمة أحمد",
-    category: "التسويق",
-    categoryEn: "Marketing",
-    status: "published",
-    comments: 8,
-    views: 890,
-    publishDate: "2024-12-10",
-    lastModified: "2024-12-10",
-    tags: ["مبيعات", "تسويق", "إنترنت"],
-    featured: false
-  },
-  {
-    id: "post-3",
-    title: "أساسيات الأمان في المواقع الإلكترونية",
-    titleEn: "Website Security Fundamentals",
-    content: "الأمان هو أحد أهم الجوانب التي يجب مراعاتها عند إنشاء موقع إلكتروني...",
-    author: "محمد علي",
-    category: "التقنية",
-    categoryEn: "Technology",
-    status: "draft",
-    comments: 0,
-    views: 0,
-    publishDate: "",
-    lastModified: "2024-12-20",
-    tags: ["أمان", "مواقع", "تقنية"],
-    featured: false
-  },
-  {
-    id: "post-4",
-    title: "دليل شامل لتحسين محركات البحث SEO",
-    titleEn: "Complete SEO Optimization Guide",
-    content: "تحسين محركات البحث هو عملية مهمة لزيادة ظهور موقعك في نتائج البحث...",
-    author: "خالد السعد",
-    category: "التسويق الرقمي",
-    categoryEn: "Digital Marketing",
-    status: "published",
-    comments: 22,
-    views: 2100,
-    publishDate: "2024-12-05",
-    lastModified: "2024-12-05",
-    tags: ["SEO", "تحسين", "محركات البحث"],
-    featured: true
-  },
-  {
-    id: "post-5",
-    title: "أهمية تحليل البيانات في اتخاذ القرارات",
-    titleEn: "The Importance of Data Analysis in Decision Making",
-    content: "تحليل البيانات أصبح ضرورة حتمية في عالم الأعمال الحديث...",
-    author: "نورا حسن",
-    category: "التحليلات",
-    categoryEn: "Analytics",
-    status: "published",
-    comments: 12,
-    views: 1560,
-    publishDate: "2024-11-28",
-    lastModified: "2024-11-28",
-    tags: ["بيانات", "تحليل", "قرارات"],
-    featured: false
-  }
-];
+type PostFormState = {
+  title: string;
+  excerpt: string;
+  content: string;
+  category_id: string;
+  status: "draft" | "published";
+  is_featured: boolean;
+  tags: string[];
+  cover_image: string;
+};
 
-const categories = [
-  { id: "cat-1", name: "إدارة الأعمال", nameEn: "Business Management", postsCount: 3 },
-  { id: "cat-2", name: "التسويق", nameEn: "Marketing", postsCount: 2 },
-  { id: "cat-3", name: "التقنية", nameEn: "Technology", postsCount: 1 },
-  { id: "cat-4", name: "التسويق الرقمي", nameEn: "Digital Marketing", postsCount: 1 },
-  { id: "cat-5", name: "التحليلات", nameEn: "Analytics", postsCount: 1 }
-];
+const defaultPostForm: PostFormState = {
+  title: "",
+  excerpt: "",
+  content: "",
+  category_id: "",
+  status: "draft",
+  is_featured: false,
+  tags: [],
+  cover_image: "",
+};
 
 export function BlogPage() {
   const { t } = useTranslation();
   const { isRTL } = useDirection();
   const navigate = useNavigate();
-  
-  const [searchTerm, setSearchTerm] = React.useState("");
-  const [selectedCategory, setSelectedCategory] = React.useState("all");
-  const [selectedStatus, setSelectedStatus] = React.useState("all");
-  const [selectedPosts, setSelectedPosts] = React.useState<string[]>([]);
-  const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
-  const [_editingPost, _setEditingPost] = React.useState<string | null>(null);
-  const [_editedPost, _setEditedPost] = React.useState<any>(null);
-  const [newPost, setNewPost] = React.useState({
-    title: "",
-    titleEn: "",
-    content: "",
-    category: "",
-    status: "draft",
-    featured: false,
-    tags: [] as string[],
-    author: "المدير"
-  });
-  const [newTag, setNewTag] = React.useState("");
+  const location = useLocation();
 
-  // Filter posts based on search and filters
-  const filteredPosts = blogPosts.filter(post => {
-    const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         post.titleEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         post.content.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "all" || post.category === selectedCategory;
-    const matchesStatus = selectedStatus === "all" || post.status === selectedStatus;
-    
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  const [posts, setPosts] = useState<BlogPostRecord[]>([]);
+  const [categories, setCategories] = useState<BlogCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedPosts, setSelectedPosts] = useState<number[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPostId, setEditingPostId] = useState<number | null>(null);
+  const [postForm, setPostForm] = useState<PostFormState>(defaultPostForm);
+  const [tagInput, setTagInput] = useState("");
+  const [isSavingPost, setIsSavingPost] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
-  // Calculate stats
-  const totalPosts = blogPosts.length;
-  const publishedPosts = blogPosts.filter(post => post.status === "published").length;
-  const draftPosts = blogPosts.filter(post => post.status === "draft").length;
-  const totalComments = blogPosts.reduce((sum, post) => sum + post.comments, 0);
+  const loadPosts = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetchBlogPosts();
+      setPosts(response.data);
+      setSelectedPosts((prev) => prev.filter((id) => response.data.some((post) => post.id === id)));
+    } catch (error: any) {
+      toast.error(error?.message || t("common.error"));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [t]);
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedPosts(filteredPosts.map(post => post.id));
+  const loadCategories = useCallback(async () => {
+    try {
+      const response = await fetchBlogCategories();
+      setCategories(response.data);
+    } catch (error: any) {
+      toast.error(error?.message || t("common.error"));
+    }
+  }, [t]);
+
+  useEffect(() => {
+    loadPosts();
+    loadCategories();
+  }, [loadPosts, loadCategories]);
+
+  useEffect(() => {
+    if (!isModalOpen) {
+      resetForm();
+    }
+  }, [isModalOpen]);
+
+  useEffect(() => {
+    const state = (location.state || {}) as { editPostId?: number };
+    if (state.editPostId) {
+      openEditModal(state.editPostId);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
+
+  const filteredPosts = useMemo(() => {
+    return posts.filter((post) => {
+      const matchesSearch =
+        post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (post.slug ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (post.excerpt ?? "").toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === "all" || post.status === statusFilter;
+      const matchesCategory =
+        categoryFilter === "all" || (post.category?.id?.toString() ?? "") === categoryFilter;
+      return matchesSearch && matchesStatus && matchesCategory;
+    });
+  }, [posts, searchTerm, statusFilter, categoryFilter]);
+
+  const totalPosts = posts.length;
+  const publishedPosts = posts.filter((post) => post.status === "published").length;
+  const draftPosts = posts.filter((post) => post.status === "draft").length;
+  const totalComments = posts.reduce((sum, post) => sum + (post.comments ?? 0), 0);
+
+  const statusBadge = (status: string) => {
+    switch (status) {
+      case "published":
+        return <Badge className="bg-green-100 text-green-800">{t("admin.blog.published")}</Badge>;
+      case "draft":
+      default:
+        return <Badge variant="secondary">{t("admin.blog.draft")}</Badge>;
+    }
+  };
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return t("admin.blog.notPublished");
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString(isRTL ? "ar-SA" : "en-US");
+  };
+
+  const getCategoryLabel = (category?: BlogCategory | null) => {
+    if (!category) return t("common.notAvailable");
+    return isRTL ? category.name_ar : category.name_en;
+  };
+
+  const resetForm = () => {
+    setPostForm(defaultPostForm);
+    setTagInput("");
+    setEditingPostId(null);
+  };
+
+  const handleAddTag = () => {
+    if (!tagInput.trim()) return;
+    if (postForm.tags.includes(tagInput.trim())) return;
+    setPostForm((prev) => ({ ...prev, tags: [...prev.tags, tagInput.trim()] }));
+    setTagInput("");
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setPostForm((prev) => ({ ...prev, tags: prev.tags.filter((item) => item !== tag) }));
+  };
+
+  const openCreateModal = () => {
+    resetForm();
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = useCallback(
+    async (postId: number) => {
+      try {
+        const response = await fetchBlogPost(postId);
+        const data = response.data;
+        setPostForm({
+          title: data.title,
+          excerpt: data.excerpt ?? "",
+          content: data.content ?? "",
+          category_id: data.category?.id ? String(data.category.id) : "",
+          status: data.status,
+          is_featured: data.is_featured,
+          tags: data.tags ?? [],
+          cover_image: data.cover_image ?? "",
+        });
+        setEditingPostId(postId);
+        setIsModalOpen(true);
+      } catch (error: any) {
+        toast.error(error?.message || t("common.error"));
+      }
+    },
+    [t],
+  );
+
+  const handleSavePost = async () => {
+    if (!postForm.title.trim() || !postForm.content.trim()) {
+      toast.error(t("admin.blog.titleRequired"));
+      return;
+    }
+
+    const payload = {
+      title: postForm.title.trim(),
+      excerpt: postForm.excerpt.trim() || null,
+      content: postForm.content,
+      category_id: postForm.category_id ? Number(postForm.category_id) : null,
+      status: postForm.status,
+      is_featured: postForm.is_featured,
+      tags: postForm.tags,
+      cover_image: postForm.cover_image.trim() || null,
+    };
+
+    setIsSavingPost(true);
+    try {
+      if (editingPostId) {
+        await updateBlogPost(editingPostId, payload);
+        toast.success(t("admin.blog.updateSuccess"));
+      } else {
+        await createBlogPost(payload);
+        toast.success(t("admin.blog.createSuccess"));
+      }
+      setIsModalOpen(false);
+      resetForm();
+      await loadPosts();
+    } catch (error: any) {
+      toast.error(error?.message || t("common.error"));
+    } finally {
+      setIsSavingPost(false);
+    }
+  };
+
+  const handleDeletePost = async (postId: number) => {
+    if (!window.confirm(t("admin.blog.deletePostConfirm") ?? t("admin.blog.delete"))) return;
+    try {
+      await deleteBlogPost(postId);
+      toast.success(t("admin.blog.deleteSuccess"));
+      await loadPosts();
+    } catch (error: any) {
+      toast.error(error?.message || t("common.error"));
+    }
+  };
+
+  const handleBulkAction = async (action: "publish" | "draft" | "delete") => {
+    if (!selectedPosts.length) {
+      toast.error(t("admin.blog.selectPostsFirst"));
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      for (const postId of selectedPosts) {
+        if (action === "delete") {
+          await deleteBlogPost(postId);
+        } else {
+          await updateBlogPost(postId, { status: action === "publish" ? "published" : "draft" });
+        }
+      }
+      if (action === "delete") {
+        toast.success(t("admin.blog.bulkDeleteSuccess", { count: selectedPosts.length }));
+      } else if (action === "publish") {
+        toast.success(t("admin.blog.bulkPublishSuccess", { count: selectedPosts.length }));
+      } else {
+        toast.success(t("admin.blog.bulkDraftSuccess", { count: selectedPosts.length }));
+      }
+      setSelectedPosts([]);
+      await loadPosts();
+    } catch (error: any) {
+      toast.error(error?.message || t("common.error"));
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const toggleSelectAll = (checked: CheckedState) => {
+    if (checked === true) {
+      setSelectedPosts(filteredPosts.map((post) => post.id));
     } else {
       setSelectedPosts([]);
     }
   };
 
-  const handleSelectPost = (postId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedPosts(prev => [...prev, postId]);
-    } else {
-      setSelectedPosts(prev => prev.filter(id => id !== postId));
-    }
-  };
-
-  const _handleExport = () => {
-    toast.success(t("admin.blog.exportSuccess"));
-  };
-
-  const handleBulkAction = (action: string) => {
-    if (selectedPosts.length === 0) {
-      toast.error(t("admin.blog.selectPostsFirst"));
-      return;
-    }
-    
-    switch (action) {
-      case "publish":
-        toast.success(t("admin.blog.bulkPublishSuccess", { count: selectedPosts.length }));
-        break;
-      case "draft":
-        toast.success(t("admin.blog.bulkDraftSuccess", { count: selectedPosts.length }));
-        break;
-      case "delete":
-        toast.success(t("admin.blog.bulkDeleteSuccess", { count: selectedPosts.length }));
-        break;
-    }
-    setSelectedPosts([]);
-  };
-
-  const handleCreatePost = () => {
-    setIsCreateModalOpen(true);
-  };
-
-  const handleSaveNewPost = () => {
-    if (!newPost.title.trim()) {
-      toast.error(t("admin.blog.titleRequired"));
-      return;
-    }
-    if (!newPost.content.trim()) {
-      toast.error(t("admin.blog.contentRequired"));
-      return;
-    }
-    if (!newPost.category) {
-      toast.error(t("admin.blog.categoryRequired"));
-      return;
-    }
-
-    toast.success(t("admin.blog.createSuccess"));
-    setIsCreateModalOpen(false);
-    resetNewPostForm();
-  };
-
-  const resetNewPostForm = () => {
-    setNewPost({
-      title: "",
-      titleEn: "",
-      content: "",
-      category: "",
-      status: "draft",
-      featured: false,
-      tags: [],
-      author: "المدير"
+  const toggleSelectPost = (postId: number, checked: CheckedState) => {
+    setSelectedPosts((prev) => {
+      if (checked === true) {
+        return [...prev, postId];
+      }
+      return prev.filter((id) => id !== postId);
     });
-    setNewTag("");
-  };
-
-  const handleAddTag = () => {
-    if (newTag.trim() && !newPost.tags.includes(newTag.trim())) {
-      setNewPost(prev => ({
-        ...prev,
-        tags: [...prev.tags, newTag.trim()]
-      }));
-      setNewTag("");
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    setNewPost(prev => ({
-      ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
-    }));
-  };
-
-  const handleEditPost = (post: any) => {
-    _setEditingPost(post.id);
-    _setEditedPost({ ...post });
-  };
-
-  const _handleSaveEdit = () => {
-    toast.success(t("admin.blog.updateSuccess"));
-    _setEditingPost(null);
-    _setEditedPost(null);
-  };
-
-  const _handleCancelEdit = () => {
-    _setEditingPost(null);
-    _setEditedPost(null);
-  };
-
-  const handleDeletePost = (_postId: string) => {
-    toast.success(t("admin.blog.deleteSuccess"));
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "published":
-        return <Badge variant="default" className="bg-green-100 text-green-800">{t("admin.blog.published")}</Badge>;
-      case "draft":
-        return <Badge variant="secondary">{t("admin.blog.draft")}</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
   };
 
   return (
-    <div className={`flex flex-col gap-4 p-4 h-full ${isRTL ? 'font-arabic' : 'font-sans'}`} dir={isRTL ? "rtl" : "ltr"}>
-      {/* Header */}
-      <div className={`flex items-center justify-between ${isRTL ? 'flex-row' : 'flex-row'}`}>
-        <h1 className={`text-2xl font-semibold flex items-center gap-2 ${isRTL ? 'text-left' : 'text-right'}`}>
+    <div className={`flex flex-col gap-4 p-4 h-full ${isRTL ? "font-arabic" : "font-sans"}`} dir={isRTL ? "rtl" : "ltr"}>
+      <div className={`flex items-center justify-between ${isRTL ? "flex-row" : "flex-row"}`}>
+        <h1 className={`text-2xl font-semibold flex items-center gap-2 ${isRTL ? "text-left" : "text-right"}`}>
           <BookOpen className="h-6 w-6" />
           {t("admin.blog.title")}
         </h1>
         <div className="flex items-center gap-2">
-          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
             <DialogTrigger asChild>
-              <Button onClick={handleCreatePost} className={isRTL ? 'text-left' : 'text-right'}>
+              <Button onClick={openCreateModal} className={isRTL ? "text-left" : "text-right"}>
                 <span>{t("admin.blog.createPost")}</span>
-                <Plus className={`h-4 w-4 ${isRTL ? 'mr-2' : 'ml-2'}`} />
+                <Plus className={`h-4 w-4 ${isRTL ? "mr-2" : "ml-2"}`} />
               </Button>
             </DialogTrigger>
-            <DialogContent className={`max-w-3xl ${isRTL ? 'font-arabic' : 'font-sans'}`} dir={isRTL ? "rtl" : "ltr"}>
+            <DialogContent className={`max-w-3xl ${isRTL ? "font-arabic" : "font-sans"}`} dir={isRTL ? "rtl" : "ltr"}>
               <DialogHeader>
-                <DialogTitle className={isRTL ? 'text-right' : 'text-left'}>
-                  {t("admin.blog.createPost")}
+                <DialogTitle className={isRTL ? "text-right" : "text-left"}>
+                  {editingPostId ? t("admin.blog.editPost") : t("admin.blog.createPost")}
                 </DialogTitle>
-                <DialogDescription className={isRTL ? 'text-right' : 'text-left'}>
+                <DialogDescription className={isRTL ? "text-right" : "text-left"}>
                   {t("admin.blog.createPostDescription")}
                 </DialogDescription>
               </DialogHeader>
-              
+
               <div className="grid gap-4 py-4">
-                {/* Post Title */}
-                <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <Label htmlFor="postTitle" className={`${isRTL ? 'text-right' : 'text-left'}`}>
+                <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+                  <Label className={`${isRTL ? "text-right" : "text-left"}`}>
                     {t("admin.blog.postTitle")} *
                   </Label>
                   <Input
-                    id="postTitle"
-                    value={newPost.title}
-                    onChange={(e) => setNewPost(prev => ({ ...prev, title: e.target.value }))}
-                    className={`col-span-3 ${isRTL ? 'text-right' : 'text-left'}`}
+                    value={postForm.title}
+                    onChange={(e) => setPostForm((prev) => ({ ...prev, title: e.target.value }))}
+                    className={`col-span-3 ${isRTL ? "text-right" : "text-left"}`}
                     placeholder={t("admin.blog.titlePlaceholder")}
                   />
                 </div>
 
-                {/* English Title */}
-                <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <Label htmlFor="postTitleEn" className={`${isRTL ? 'text-right' : 'text-left'}`}>
-                    {t("admin.blog.titleEn")}
-                  </Label>
-                  <Input
-                    id="postTitleEn"
-                    value={newPost.titleEn}
-                    onChange={(e) => setNewPost(prev => ({ ...prev, titleEn: e.target.value }))}
-                    className={`col-span-3 ${isRTL ? 'text-right' : 'text-left'}`}
-                    placeholder={t("admin.blog.titleEnPlaceholder")}
+                <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+                  <Label className={`${isRTL ? "text-right" : "text-left"}`}>{t("admin.blog.excerpt")}</Label>
+                  <Textarea
+                    value={postForm.excerpt}
+                    onChange={(e) => setPostForm((prev) => ({ ...prev, excerpt: e.target.value }))}
+                    className={`col-span-3 ${isRTL ? "text-right" : "text-left"}`}
+                    placeholder={t("admin.blog.excerptPlaceholder")}
+                    rows={3}
                   />
                 </div>
 
-                {/* Content */}
-                <div className={`grid grid-cols-4 items-start gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <Label htmlFor="content" className={`${isRTL ? 'text-right' : 'text-left'}`}>
+                <div className={`grid grid-cols-4 items-start gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+                  <Label className={`${isRTL ? "text-right" : "text-left"}`}>
                     {t("admin.blog.content")} *
                   </Label>
                   <Textarea
-                    id="content"
-                    value={newPost.content}
-                    onChange={(e) => setNewPost(prev => ({ ...prev, content: e.target.value }))}
-                    className={`col-span-3 ${isRTL ? 'text-right' : 'text-left'}`}
+                    value={postForm.content}
+                    onChange={(e) => setPostForm((prev) => ({ ...prev, content: e.target.value }))}
+                    className={`col-span-3 ${isRTL ? "text-right" : "text-left"}`}
                     placeholder={t("admin.blog.contentPlaceholder")}
                     rows={8}
                   />
                 </div>
 
-                {/* Category */}
-                <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <Label className={`${isRTL ? 'text-right' : 'text-left'}`}>
+                <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+                  <Label className={`${isRTL ? "text-right" : "text-left"}`}>
+                    {t("admin.blog.coverImage")}
+                  </Label>
+                  <Input
+                    value={postForm.cover_image}
+                    onChange={(e) => setPostForm((prev) => ({ ...prev, cover_image: e.target.value }))}
+                    className={`col-span-3 ${isRTL ? "text-right" : "text-left"}`}
+                    placeholder={t("admin.blog.coverImagePlaceholder")}
+                  />
+                </div>
+
+                <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+                  <Label className={`${isRTL ? "text-right" : "text-left"}`}>
                     {t("admin.blog.category")} *
                   </Label>
-                  <Select value={newPost.category} onValueChange={(value) => setNewPost(prev => ({ ...prev, category: value }))}>
+                  <Select
+                    value={postForm.category_id}
+                    onValueChange={(value) => setPostForm((prev) => ({ ...prev, category_id: value }))}
+                  >
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder={t("admin.blog.selectCategory")} />
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.name}>
-                          {isRTL ? category.name : category.nameEn}
+                        <SelectItem key={category.id} value={String(category.id)}>
+                          {isRTL ? category.name_ar : category.name_en}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* Tags */}
-                <div className={`grid grid-cols-4 items-start gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <Label className={`${isRTL ? 'text-right' : 'text-left'}`}>
+                <div className={`grid grid-cols-4 items-start gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+                  <Label className={`${isRTL ? "text-right" : "text-left"}`}>
                     {t("admin.blog.tags")}
                   </Label>
                   <div className="col-span-3 space-y-2">
-                    <div className={`flex gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <div className={`flex gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
                       <Input
-                        value={newTag}
-                        onChange={(e) => setNewTag(e.target.value)}
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
                         placeholder={t("admin.blog.addTag")}
-                        className={`${isRTL ? 'text-right' : 'text-left'}`}
-                        onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                        className={`${isRTL ? "text-right" : "text-left"}`}
+                        onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddTag())}
                       />
                       <Button onClick={handleAddTag} size="sm">
                         <Plus className="h-4 w-4" />
                       </Button>
                     </div>
-                    
                     <div className="flex flex-wrap gap-2">
-                      {newPost.tags.map((tag, index) => (
-                        <Badge key={index} variant="outline" className="flex items-center gap-1">
+                      {postForm.tags.map((tag) => (
+                        <Badge key={tag} variant="outline" className="flex items-center gap-1">
                           {tag}
                           <Button
                             size="sm"
@@ -435,13 +451,17 @@ export function BlogPage() {
                   </div>
                 </div>
 
-                {/* Status and Featured */}
-                <div className={`grid grid-cols-2 gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                    <Label className={`${isRTL ? 'text-right' : 'text-left'}`}>
+                <div className={`grid grid-cols-2 gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+                  <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+                    <Label className={`${isRTL ? "text-right" : "text-left"}`}>
                       {t("admin.blog.status")}
                     </Label>
-                    <Select value={newPost.status} onValueChange={(value) => setNewPost(prev => ({ ...prev, status: value }))}>
+                    <Select
+                      value={postForm.status}
+                      onValueChange={(value: "draft" | "published") =>
+                        setPostForm((prev) => ({ ...prev, status: value }))
+                      }
+                    >
                       <SelectTrigger className="col-span-3">
                         <SelectValue />
                       </SelectTrigger>
@@ -451,30 +471,31 @@ export function BlogPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  
-                  <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                    <Label className={`${isRTL ? 'text-right' : 'text-left'}`}>
+
+                  <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+                    <Label className={`${isRTL ? "text-right" : "text-left"}`}>
                       {t("admin.blog.featured")}
                     </Label>
-                    <div className={`col-span-3 flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <div className={`col-span-3 flex items-center gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
                       <Switch
-                        checked={newPost.featured}
-                        onCheckedChange={(checked) => setNewPost(prev => ({ ...prev, featured: checked }))}
+                        checked={postForm.is_featured}
+                        onCheckedChange={(checked) => setPostForm((prev) => ({ ...prev, is_featured: checked }))}
                       />
-                      <Label className={`text-sm ${isRTL ? 'text-right' : 'text-left'}`}>
-                        {newPost.featured ? t("admin.blog.featured") : t("admin.blog.notFeatured")}
-                      </Label>
+                      <span className="text-sm">
+                        {postForm.is_featured ? t("admin.blog.featured") : t("admin.blog.notFeatured")}
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <DialogFooter className={`${isRTL ? 'flex-row-reverse' : ''}`}>
-                <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+              <DialogFooter className={`${isRTL ? "flex-row-reverse" : ""}`}>
+                <Button variant="outline" onClick={() => setIsModalOpen(false)}>
                   {t("admin.blog.cancel")}
                 </Button>
-                <Button onClick={handleSaveNewPost}>
-                  {t("admin.blog.createPost")}
+                <Button onClick={handleSavePost} disabled={isSavingPost}>
+                  {isSavingPost ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {editingPostId ? t("admin.blog.edit") : t("admin.blog.createPost")}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -482,7 +503,6 @@ export function BlogPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <AdminStatsCard
           title={t("admin.blog.totalPosts")}
@@ -514,34 +534,33 @@ export function BlogPage() {
         />
       </div>
 
-      {/* Filters */}
-      <div className={`flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+      <div className={`flex items-center gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
         <div className="relative flex-1">
-          <Search className={`absolute top-2.5 ${isRTL ? 'left-2' : 'right-2'} h-4 w-4 text-gray-500`} />
+          <Search className={`absolute top-2.5 ${isRTL ? "left-2" : "right-2"} h-4 w-4 text-gray-500`} />
           <Input
             placeholder={t("admin.blog.searchPlaceholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className={`${isRTL ? 'pl-8 pr-4 text-right' : 'pr-8 pl-4 text-left'}`}
+            className={`${isRTL ? "pl-8 pr-4 text-right" : "pr-8 pl-4 text-left"}`}
             dir={isRTL ? "rtl" : "ltr"}
           />
         </div>
-        
-        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder={t("admin.blog.allCategories")} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t("admin.blog.allCategories")}</SelectItem>
             {categories.map((category) => (
-              <SelectItem key={category.id} value={category.name}>
-                {isRTL ? category.name : category.nameEn}
+              <SelectItem key={category.id} value={String(category.id)}>
+                {isRTL ? category.name_ar : category.name_en}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        
-        <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder={t("admin.blog.allStatuses")} />
           </SelectTrigger>
@@ -553,27 +572,25 @@ export function BlogPage() {
         </Select>
       </div>
 
-      {/* Bulk Actions */}
       {selectedPosts.length > 0 && (
         <Alert>
-          <AlertDescription className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <AlertDescription className={`flex items-center justify-between ${isRTL ? "flex-row-reverse" : ""}`}>
             <span>{t("admin.blog.selectedPosts", { count: selectedPosts.length })}</span>
-            <div className={`flex gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <Button size="sm" variant="outline" onClick={() => handleBulkAction("publish")}>
-                {t("admin.blog.publish")}
+            <div className={`flex gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+              <Button size="sm" variant="outline" disabled={bulkLoading} onClick={() => handleBulkAction("publish")}>
+                {bulkLoading ? t("common.loading") : t("admin.blog.publish")}
               </Button>
-              <Button size="sm" variant="outline" onClick={() => handleBulkAction("draft")}>
-                {t("admin.blog.draft")}
+              <Button size="sm" variant="outline" disabled={bulkLoading} onClick={() => handleBulkAction("draft")}>
+                {bulkLoading ? t("common.loading") : t("admin.blog.draft")}
               </Button>
-              <Button size="sm" variant="outline" onClick={() => handleBulkAction("delete")}>
-                {t("admin.blog.delete")}
+              <Button size="sm" variant="outline" disabled={bulkLoading} onClick={() => handleBulkAction("delete")}>
+                {bulkLoading ? t("common.loading") : t("admin.blog.delete")}
               </Button>
             </div>
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Posts Table */}
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -582,30 +599,16 @@ export function BlogPage() {
                 <TableHead className="w-12">
                   <Checkbox
                     checked={selectedPosts.length === filteredPosts.length && filteredPosts.length > 0}
-                    onCheckedChange={handleSelectAll}
+                    onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
-                <TableHead className={isRTL ? "text-left" : "text-right"}>
-                  {t("admin.blog.postTitle")}
-                </TableHead>
-                <TableHead className={isRTL ? "text-left" : "text-right"}>
-                  {t("admin.blog.author")}
-                </TableHead>
-                <TableHead className={isRTL ? "text-left" : "text-right"}>
-                  {t("admin.blog.category")}
-                </TableHead>
-                <TableHead className={isRTL ? "text-left" : "text-right"}>
-                  {t("admin.blog.status")}
-                </TableHead>
-                <TableHead className={isRTL ? "text-left" : "text-right"}>
-                  {t("admin.blog.comments")}
-                </TableHead>
-                <TableHead className={isRTL ? "text-left" : "text-right"}>
-                  {t("admin.blog.publishDate")}
-                </TableHead>
-                <TableHead className={isRTL ? "text-left" : "text-right"}>
-                  {t("admin.blog.actions")}
-                </TableHead>
+                <TableHead className={isRTL ? "text-left" : "text-right"}>{t("admin.blog.postTitle")}</TableHead>
+                <TableHead className={isRTL ? "text-left" : "text-right"}>{t("admin.blog.author")}</TableHead>
+                <TableHead className={isRTL ? "text-left" : "text-right"}>{t("admin.blog.category")}</TableHead>
+                <TableHead className={isRTL ? "text-left" : "text-right"}>{t("admin.blog.status")}</TableHead>
+                <TableHead className={isRTL ? "text-left" : "text-right"}>{t("admin.blog.comments")}</TableHead>
+                <TableHead className={isRTL ? "text-left" : "text-right"}>{t("admin.blog.publishDate")}</TableHead>
+                <TableHead className={isRTL ? "text-left" : "text-right"}>{t("admin.blog.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -614,13 +617,13 @@ export function BlogPage() {
                   <TableCell>
                     <Checkbox
                       checked={selectedPosts.includes(post.id)}
-                      onCheckedChange={(checked) => handleSelectPost(post.id, checked as boolean)}
+                      onCheckedChange={(checked) => toggleSelectPost(post.id, checked)}
                     />
                   </TableCell>
-                  <TableCell className={`font-medium ${isRTL ? 'text-left' : 'text-right'}`}>
+                  <TableCell className={`font-medium ${isRTL ? "text-left" : "text-right"}`}>
                     <div>
                       <div className="font-semibold">{post.title}</div>
-                      {post.featured && (
+                      {post.is_featured && (
                         <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-800 mt-1">
                           {t("admin.blog.featured")}
                         </Badge>
@@ -628,25 +631,23 @@ export function BlogPage() {
                     </div>
                   </TableCell>
                   <TableCell className={isRTL ? "text-left" : "text-right"}>
-                    <div className={`flex items-center gap-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <div className={`flex items-center gap-1 ${isRTL ? "flex-row-reverse" : ""}`}>
                       <Users className="h-4 w-4 text-gray-500" />
-                      {post.author}
+                      {post.author?.name ?? "-"}
                     </div>
                   </TableCell>
                   <TableCell className={isRTL ? "text-left" : "text-right"}>
-                    <Badge variant="outline">{post.category}</Badge>
+                    <Badge variant="outline">{getCategoryLabel(post.category ?? null)}</Badge>
                   </TableCell>
-                  <TableCell>
-                    {getStatusBadge(post.status)}
-                  </TableCell>
+                  <TableCell>{statusBadge(post.status)}</TableCell>
                   <TableCell className={isRTL ? "text-left" : "text-right"}>
-                    <div className={`flex items-center gap-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <div className={`flex items-center gap-1 ${isRTL ? "flex-row-reverse" : ""}`}>
                       <MessageSquare className="h-4 w-4 text-gray-500" />
-                      {post.comments}
+                      {post.comments ?? 0}
                     </div>
                   </TableCell>
                   <TableCell className={isRTL ? "text-left" : "text-right"}>
-                    {post.publishDate || t("admin.blog.notPublished")}
+                    {formatDate(post.published_at)}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -658,20 +659,17 @@ export function BlogPage() {
                       <DropdownMenuContent align={isRTL ? "start" : "end"}>
                         <DropdownMenuLabel>{t("admin.blog.actions")}</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => navigate(`/admin/blog/${post.id}`)}>
-                          <Eye className={`${isRTL ? 'mr-2' : 'ml-2'} h-4 w-4`} />
+                        <DropdownMenuItem onSelect={() => navigate(`/admin/blog/${post.id}`)}>
+                          <Eye className={`${isRTL ? "mr-2" : "ml-2"} h-4 w-4`} />
                           {t("admin.blog.view")}
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleEditPost(post)}>
-                          <Edit className={`${isRTL ? 'mr-2' : 'ml-2'} h-4 w-4`} />
+                        <DropdownMenuItem onSelect={() => openEditModal(post.id)}>
+                          <Edit className={`${isRTL ? "mr-2" : "ml-2"} h-4 w-4`} />
                           {t("admin.blog.edit")}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          className="text-red-600"
-                          onClick={() => handleDeletePost(post.id)}
-                        >
-                          <Trash2 className={`${isRTL ? 'mr-2' : 'ml-2'} h-4 w-4`} />
+                        <DropdownMenuItem className="text-red-600" onSelect={() => handleDeletePost(post.id)}>
+                          <Trash2 className={`${isRTL ? "mr-2" : "ml-2"} h-4 w-4`} />
                           {t("admin.blog.delete")}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -681,13 +679,18 @@ export function BlogPage() {
               ))}
             </TableBody>
           </Table>
+          {isLoading && (
+            <div className="p-4 text-center text-sm text-muted-foreground">{t("common.loading")}</div>
+          )}
+          {!isLoading && !filteredPosts.length && (
+            <div className="p-4 text-center text-sm text-muted-foreground">{t("common.noData")}</div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Pagination */}
-      <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
-        <p className={`text-sm text-gray-600 ${isRTL ? 'text-right' : 'text-left'}`}>
-          {t("admin.blog.shownFrom", { shown: filteredPosts.length, total: blogPosts.length })}
+      <div className={`flex items-center justify-between ${isRTL ? "flex-row-reverse" : "flex-row"}`}>
+        <p className={`text-sm text-gray-600 ${isRTL ? "text-right" : "text-left"}`}>
+          {t("admin.blog.shownFrom", { shown: filteredPosts.length, total: posts.length })}
         </p>
       </div>
     </div>

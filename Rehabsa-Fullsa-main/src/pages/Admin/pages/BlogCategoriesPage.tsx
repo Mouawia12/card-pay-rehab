@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
 import { AdminStatsCard } from "../components/StatsCard";
@@ -7,15 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import {
-  Tag,
-  Plus,
-  Edit,
-  Trash2,
-  MoreHorizontal,
-  FileText,
-  Eye,
-} from "lucide-react";
+import { Tag, Plus, Edit, Trash2, MoreHorizontal, FileText } from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -35,381 +27,300 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  createBlogCategory,
+  deleteBlogCategory,
+  fetchBlogCategories,
+  updateBlogCategory,
+  type BlogCategory,
+} from "@/lib/api";
 
-// Mock data for categories
-const categories = [
-  {
-    id: "cat-1",
-    name: "إدارة الأعمال",
-    nameEn: "Business Management",
-    description: "مقالات حول إدارة الأعمال والمشاريع",
-    descriptionEn: "Articles about business and project management",
-    postsCount: 3,
-    color: "#3B82F6",
-    createdAt: "2024-01-15",
-    updatedAt: "2024-12-15"
-  },
-  {
-    id: "cat-2",
-    name: "التسويق",
-    nameEn: "Marketing",
-    description: "استراتيجيات التسويق والتسويق الرقمي",
-    descriptionEn: "Marketing strategies and digital marketing",
-    postsCount: 2,
-    color: "#10B981",
-    createdAt: "2024-02-10",
-    updatedAt: "2024-12-10"
-  },
-  {
-    id: "cat-3",
-    name: "التقنية",
-    nameEn: "Technology",
-    description: "أحدث التقنيات والتطورات التقنية",
-    descriptionEn: "Latest technologies and technical developments",
-    postsCount: 1,
-    color: "#F59E0B",
-    createdAt: "2024-03-05",
-    updatedAt: "2024-12-20"
-  },
-  {
-    id: "cat-4",
-    name: "التسويق الرقمي",
-    nameEn: "Digital Marketing",
-    description: "تسويق رقمي ووسائل التواصل الاجتماعي",
-    descriptionEn: "Digital marketing and social media",
-    postsCount: 1,
-    color: "#8B5CF6",
-    createdAt: "2024-04-12",
-    updatedAt: "2024-12-05"
-  },
-  {
-    id: "cat-5",
-    name: "التحليلات",
-    nameEn: "Analytics",
-    description: "تحليل البيانات والإحصائيات",
-    descriptionEn: "Data analysis and statistics",
-    postsCount: 1,
-    color: "#EF4444",
-    createdAt: "2024-05-20",
-    updatedAt: "2024-11-28"
-  }
-];
+type CategoryFormState = {
+  name_ar: string;
+  name_en: string;
+  description_ar: string;
+  description_en: string;
+  color: string;
+};
+
+const defaultForm: CategoryFormState = {
+  name_ar: "",
+  name_en: "",
+  description_ar: "",
+  description_en: "",
+  color: "#3B82F6",
+};
+
+const colorOptions = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#EC4899", "#6B7280", "#111827"];
 
 export function BlogCategoriesPage() {
   const { t } = useTranslation();
   const { isRTL } = useDirection();
-  
-  const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
-  const [editingCategory, setEditingCategory] = React.useState<string | null>(null);
-  const [editedCategory, setEditedCategory] = React.useState<any>(null);
-  const [newCategory, setNewCategory] = React.useState({
-    name: "",
-    nameEn: "",
-    description: "",
-    descriptionEn: "",
-    color: "#3B82F6"
-  });
 
-  // Calculate stats
-  const totalCategories = categories.length;
-  const totalPosts = categories.reduce((sum, cat) => sum + cat.postsCount, 0);
-  const mostUsedCategory = categories.reduce((prev, current) => 
-    prev.postsCount > current.postsCount ? prev : current
-  );
+  const [categories, setCategories] = useState<BlogCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [categoryForm, setCategoryForm] = useState<CategoryFormState>(defaultForm);
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleCreateCategory = () => {
-    setIsCreateModalOpen(true);
+  const loadCategories = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetchBlogCategories();
+      setCategories(response.data);
+    } catch (error: any) {
+      toast.error(error?.message || t("common.error"));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
+
+  const stats = useMemo(() => {
+    const totalCategories = categories.length;
+    const totalPosts = categories.reduce((sum, cat) => sum + (cat.posts_count ?? 0), 0);
+    const mostUsed =
+      categories.reduce((prev, current) => ((prev.posts_count ?? 0) > (current.posts_count ?? 0) ? prev : current), categories[0]) ??
+      null;
+    return { totalCategories, totalPosts, mostUsed };
+  }, [categories]);
+
+  const openCreateModal = () => {
+    setCategoryForm(defaultForm);
+    setEditingCategoryId(null);
+    setIsModalOpen(true);
   };
 
-  const handleSaveNewCategory = () => {
-    if (!newCategory.name.trim()) {
+  const openEditModal = (category: BlogCategory) => {
+    setEditingCategoryId(category.id);
+    setCategoryForm({
+      name_ar: category.name_ar,
+      name_en: category.name_en,
+      description_ar: category.description_ar ?? "",
+      description_en: category.description_en ?? "",
+      color: category.color ?? "#3B82F6",
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSaveCategory = async () => {
+    if (!categoryForm.name_ar.trim()) {
       toast.error(t("admin.blog.categoryNameRequired"));
       return;
     }
-    if (!newCategory.nameEn.trim()) {
+    if (!categoryForm.name_en.trim()) {
       toast.error(t("admin.blog.categoryNameEnRequired"));
       return;
     }
 
-    toast.success(t("admin.blog.categoryCreateSuccess"));
-    setIsCreateModalOpen(false);
-    resetNewCategoryForm();
+    setIsSaving(true);
+    try {
+      const payload = {
+        name_ar: categoryForm.name_ar.trim(),
+        name_en: categoryForm.name_en.trim(),
+        description_ar: categoryForm.description_ar.trim() || null,
+        description_en: categoryForm.description_en.trim() || null,
+        color: categoryForm.color,
+      };
+      if (editingCategoryId) {
+        await updateBlogCategory(editingCategoryId, payload);
+        toast.success(t("admin.blog.categoryUpdateSuccess"));
+      } else {
+        await createBlogCategory(payload);
+        toast.success(t("admin.blog.categoryCreateSuccess"));
+      }
+      setIsModalOpen(false);
+      await loadCategories();
+    } catch (error: any) {
+      toast.error(error?.message || t("common.error"));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const resetNewCategoryForm = () => {
-    setNewCategory({
-      name: "",
-      nameEn: "",
-      description: "",
-      descriptionEn: "",
-      color: "#3B82F6"
-    });
+  const handleDeleteCategory = async (categoryId: number) => {
+    const category = categories.find((cat) => cat.id === categoryId);
+    const confirmText =
+      t("admin.blog.categoryDeleteConfirm", { name: category ? category.name_ar : "" }) ?? t("admin.blog.delete");
+    if (!window.confirm(confirmText)) return;
+    try {
+      await deleteBlogCategory(categoryId);
+      toast.success(t("admin.blog.categoryDeleteSuccess"));
+      await loadCategories();
+    } catch (error: any) {
+      toast.error(error?.message || t("common.error"));
+    }
   };
-
-  const handleEditCategory = (category: any) => {
-    setEditingCategory(category.id);
-    setEditedCategory({ ...category });
-  };
-
-  const handleSaveEdit = () => {
-    toast.success(t("admin.blog.categoryUpdateSuccess"));
-    setEditingCategory(null);
-    setEditedCategory(null);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingCategory(null);
-    setEditedCategory(null);
-  };
-
-  const handleDeleteCategory = (_categoryId: string) => {
-    toast.success(t("admin.blog.categoryDeleteSuccess"));
-  };
-
-  const colorOptions = [
-    { name: "أزرق", nameEn: "Blue", value: "#3B82F6" },
-    { name: "أخضر", nameEn: "Green", value: "#10B981" },
-    { name: "برتقالي", nameEn: "Orange", value: "#F59E0B" },
-    { name: "بنفسجي", nameEn: "Purple", value: "#8B5CF6" },
-    { name: "أحمر", nameEn: "Red", value: "#EF4444" },
-    { name: "وردي", nameEn: "Pink", value: "#EC4899" },
-    { name: "رمادي", nameEn: "Gray", value: "#6B7280" },
-    { name: "أسود", nameEn: "Black", value: "#111827" }
-  ];
 
   return (
-    <div className={`flex flex-col gap-4 p-4 h-full ${isRTL ? 'font-arabic' : 'font-sans'}`} dir={isRTL ? "rtl" : "ltr"}>
-      {/* Header */}
-      <div className={`flex items-center justify-between ${isRTL ? 'flex-row' : 'flex-row'}`}>
-        <h1 className={`text-2xl font-semibold flex items-center gap-2 ${isRTL ? 'text-left' : 'text-right'}`}>
+    <div className={`flex flex-col gap-4 p-4 h-full ${isRTL ? "font-arabic" : "font-sans"}`} dir={isRTL ? "rtl" : "ltr"}>
+      <div className={`flex items-center justify-between ${isRTL ? "flex-row" : "flex-row"}`}>
+        <h1 className={`text-2xl font-semibold flex items-center gap-2 ${isRTL ? "text-left" : "text-right"}`}>
           <Tag className="h-6 w-6" />
           {t("admin.blog.categories")}
         </h1>
-        <div className="flex items-center gap-2">
-          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={handleCreateCategory} className={isRTL ? 'text-left' : 'text-right'}>
-                <span>{t("admin.blog.createCategory")}</span>
-                <Plus className={`h-4 w-4 ${isRTL ? 'mr-2' : 'ml-2'}`} />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className={`max-w-2xl ${isRTL ? 'font-arabic' : 'font-sans'}`} dir={isRTL ? "rtl" : "ltr"}>
-              <DialogHeader>
-                <DialogTitle className={isRTL ? 'text-right' : 'text-left'}>
-                  {t("admin.blog.createCategory")}
-                </DialogTitle>
-                <DialogDescription className={isRTL ? 'text-right' : 'text-left'}>
-                  {t("admin.blog.createCategoryDescription")}
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="grid gap-4 py-4">
-                {/* Category Name */}
-                <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <Label htmlFor="categoryName" className={`${isRTL ? 'text-right' : 'text-left'}`}>
-                    {t("admin.blog.categoryName")} *
-                  </Label>
-                  <Input
-                    id="categoryName"
-                    value={newCategory.name}
-                    onChange={(e) => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
-                    className={`col-span-3 ${isRTL ? 'text-right' : 'text-left'}`}
-                    placeholder={t("admin.blog.categoryNamePlaceholder")}
-                  />
-                </div>
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={openCreateModal} className={isRTL ? "text-left" : "text-right"}>
+              <span>{t("admin.blog.createCategory")}</span>
+              <Plus className={`h-4 w-4 ${isRTL ? "mr-2" : "ml-2"}`} />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className={`max-w-2xl ${isRTL ? "font-arabic" : "font-sans"}`} dir={isRTL ? "rtl" : "ltr"}>
+            <DialogHeader>
+              <DialogTitle className={isRTL ? "text-right" : "text-left"}>
+                {editingCategoryId ? t("admin.blog.editCategory") : t("admin.blog.createCategory")}
+              </DialogTitle>
+              <DialogDescription className={isRTL ? "text-right" : "text-left"}>
+                {t("admin.blog.createCategoryDescription")}
+              </DialogDescription>
+            </DialogHeader>
 
-                {/* English Name */}
-                <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <Label htmlFor="categoryNameEn" className={`${isRTL ? 'text-right' : 'text-left'}`}>
-                    {t("admin.blog.categoryNameEn")} *
-                  </Label>
-                  <Input
-                    id="categoryNameEn"
-                    value={newCategory.nameEn}
-                    onChange={(e) => setNewCategory(prev => ({ ...prev, nameEn: e.target.value }))}
-                    className={`col-span-3 ${isRTL ? 'text-right' : 'text-left'}`}
-                    placeholder={t("admin.blog.categoryNameEnPlaceholder")}
-                  />
-                </div>
-
-                {/* Description */}
-                <div className={`grid grid-cols-4 items-start gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <Label htmlFor="description" className={`${isRTL ? 'text-right' : 'text-left'}`}>
-                    {t("admin.blog.description")}
-                  </Label>
-                  <Textarea
-                    id="description"
-                    value={newCategory.description}
-                    onChange={(e) => setNewCategory(prev => ({ ...prev, description: e.target.value }))}
-                    className={`col-span-3 ${isRTL ? 'text-right' : 'text-left'}`}
-                    placeholder={t("admin.blog.descriptionPlaceholder")}
-                    rows={3}
-                  />
-                </div>
-
-                {/* English Description */}
-                <div className={`grid grid-cols-4 items-start gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <Label htmlFor="descriptionEn" className={`${isRTL ? 'text-right' : 'text-left'}`}>
-                    {t("admin.blog.descriptionEn")}
-                  </Label>
-                  <Textarea
-                    id="descriptionEn"
-                    value={newCategory.descriptionEn}
-                    onChange={(e) => setNewCategory(prev => ({ ...prev, descriptionEn: e.target.value }))}
-                    className={`col-span-3 ${isRTL ? 'text-right' : 'text-left'}`}
-                    placeholder={t("admin.blog.descriptionEnPlaceholder")}
-                    rows={3}
-                  />
-                </div>
-
-                {/* Color */}
-                <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <Label className={`${isRTL ? 'text-right' : 'text-left'}`}>
-                    {t("admin.blog.color")}
-                  </Label>
-                  <div className="col-span-3">
-                    <div className="flex flex-wrap gap-2">
-                      {colorOptions.map((color) => (
-                        <button
-                          key={color.value}
-                          type="button"
-                          className={`w-8 h-8 rounded-full border-2 ${
-                            newCategory.color === color.value ? 'border-gray-800' : 'border-gray-300'
-                          }`}
-                          style={{ backgroundColor: color.value }}
-                          onClick={() => setNewCategory(prev => ({ ...prev, color: color.value }))}
-                          title={isRTL ? color.name : color.nameEn}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
+            <div className="grid gap-4 py-4">
+              <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+                <Label className={`${isRTL ? "text-right" : "text-left"}`}>
+                  {t("admin.blog.categoryName")} *
+                </Label>
+                <Input
+                  value={categoryForm.name_ar}
+                  onChange={(e) => setCategoryForm((prev) => ({ ...prev, name_ar: e.target.value }))}
+                  className={`col-span-3 ${isRTL ? "text-right" : "text-left"}`}
+                  placeholder={t("admin.blog.categoryNamePlaceholder")}
+                />
               </div>
 
-              <DialogFooter className={`${isRTL ? 'flex-row-reverse' : ''}`}>
-                <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
-                  {t("admin.blog.cancel")}
-                </Button>
-                <Button onClick={handleSaveNewCategory}>
-                  {t("admin.blog.createCategory")}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+              <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+                <Label className={`${isRTL ? "text-right" : "text-left"}`}>
+                  {t("admin.blog.categoryNameEn")} *
+                </Label>
+                <Input
+                  value={categoryForm.name_en}
+                  onChange={(e) => setCategoryForm((prev) => ({ ...prev, name_en: e.target.value }))}
+                  className={`col-span-3 ${isRTL ? "text-right" : "text-left"}`}
+                  placeholder={t("admin.blog.categoryNameEnPlaceholder")}
+                />
+              </div>
+
+              <div className={`grid grid-cols-4 items-start gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+                <Label className={`${isRTL ? "text-right" : "text-left"}`}>
+                  {t("admin.blog.description")}
+                </Label>
+                <Textarea
+                  value={categoryForm.description_ar}
+                  onChange={(e) => setCategoryForm((prev) => ({ ...prev, description_ar: e.target.value }))}
+                  className={`col-span-3 ${isRTL ? "text-right" : "text-left"}`}
+                  placeholder={t("admin.blog.descriptionPlaceholder")}
+                  rows={3}
+                />
+              </div>
+
+              <div className={`grid grid-cols-4 items-start gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+                <Label className={`${isRTL ? "text-right" : "text-left"}`}>
+                  {t("admin.blog.descriptionEn")}
+                </Label>
+                <Textarea
+                  value={categoryForm.description_en}
+                  onChange={(e) => setCategoryForm((prev) => ({ ...prev, description_en: e.target.value }))}
+                  className={`col-span-3 ${isRTL ? "text-right" : "text-left"}`}
+                  placeholder={t("admin.blog.descriptionEnPlaceholder")}
+                  rows={3}
+                />
+              </div>
+
+              <div className={`grid grid-cols-4 items-center gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+                <Label className={`${isRTL ? "text-right" : "text-left"}`}>{t("admin.blog.color")}</Label>
+                <div className="col-span-3 flex flex-wrap gap-2">
+                  {colorOptions.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      className={`w-8 h-8 rounded-full border-2 ${
+                        categoryForm.color === color ? "border-gray-800" : "border-gray-300"
+                      }`}
+                      style={{ backgroundColor: color }}
+                      onClick={() => setCategoryForm((prev) => ({ ...prev, color }))}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className={`${isRTL ? "flex-row-reverse" : ""}`}>
+              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+                {t("admin.blog.cancel")}
+              </Button>
+              <Button onClick={handleSaveCategory} disabled={isSaving}>
+                {isSaving ? t("common.loading") : t("admin.blog.saveCategory")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <AdminStatsCard
           title={t("admin.blog.totalCategories")}
-          value={totalCategories}
+          value={stats.totalCategories}
           icon={Tag}
           className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20"
           iconColor="text-blue-600"
         />
         <AdminStatsCard
           title={t("admin.blog.totalPosts")}
-          value={totalPosts}
+          value={stats.totalPosts}
           icon={FileText}
           className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20"
           iconColor="text-green-600"
         />
         <AdminStatsCard
           title={t("admin.blog.mostUsedCategory")}
-          value={mostUsedCategory.name}
+          value={stats.mostUsed ? (isRTL ? stats.mostUsed.name_ar : stats.mostUsed.name_en) : t("common.notAvailable")}
           icon={Eye}
           className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-purple-500/20"
           iconColor="text-purple-600"
         />
         <AdminStatsCard
-          title={t("admin.blog.averagePostsPerCategory")}
-          value={Math.round(totalPosts / totalCategories)}
-          icon={Tag}
+          title={t("admin.blog.lastUpdatedCategory")}
+          value={stats.mostUsed?.updated_at ? new Date(stats.mostUsed.updated_at).toLocaleDateString() : "-"}
+          icon={Edit}
           className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/20"
           iconColor="text-orange-600"
         />
       </div>
 
-      {/* Categories Table */}
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className={isRTL ? "text-left" : "text-right"}>
-                  {t("admin.blog.categoryName")}
-                </TableHead>
-                <TableHead className={isRTL ? "text-left" : "text-right"}>
-                  {t("admin.blog.description")}
-                </TableHead>
-                <TableHead className={isRTL ? "text-left" : "text-right"}>
-                  {t("admin.blog.postsCount")}
-                </TableHead>
-                <TableHead className={isRTL ? "text-left" : "text-right"}>
-                  {t("admin.blog.color")}
-                </TableHead>
-                <TableHead className={isRTL ? "text-left" : "text-right"}>
-                  {t("admin.blog.createdAt")}
-                </TableHead>
-                <TableHead className={isRTL ? "text-left" : "text-right"}>
-                  {t("admin.blog.actions")}
-                </TableHead>
+                <TableHead>{t("admin.blog.categoryName")}</TableHead>
+                <TableHead>{t("admin.blog.categoryNameEn")}</TableHead>
+                <TableHead>{t("admin.blog.description")}</TableHead>
+                <TableHead>{t("admin.blog.postsCount")}</TableHead>
+                <TableHead>{t("admin.blog.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {categories.map((category) => (
                 <TableRow key={category.id}>
-                  <TableCell className={`font-medium ${isRTL ? 'text-left' : 'text-right'}`}>
-                    {editingCategory === category.id ? (
-                      <Input
-                        value={editedCategory?.name || category.name}
-                        onChange={(e) => setEditedCategory({ ...editedCategory, name: e.target.value })}
-                        className="font-bold w-full"
-                      />
-                    ) : (
-                      <div>
-                        <div className="font-semibold">{category.name}</div>
-                        <div className="text-sm text-gray-600">{category.nameEn}</div>
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className={isRTL ? "text-left" : "text-right"}>
-                    {editingCategory === category.id ? (
-                      <Textarea
-                        value={editedCategory?.description || category.description}
-                        onChange={(e) => setEditedCategory({ ...editedCategory, description: e.target.value })}
-                        className="w-full min-w-[200px]"
-                        rows={2}
-                      />
-                    ) : (
-                      <div className="max-w-[200px]">
-                        <p className="text-sm text-gray-600 line-clamp-2">{category.description}</p>
-                        <p className="text-xs text-gray-500 mt-1">{category.descriptionEn}</p>
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className={isRTL ? "text-left" : "text-right"}>
-                    <div className={`flex items-center gap-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                      <FileText className="h-4 w-4 text-gray-500" />
-                      <span className="font-medium">{category.postsCount}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
+                  <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
-                      <div 
-                        className="w-6 h-6 rounded-full border border-gray-300"
-                        style={{ backgroundColor: category.color }}
+                      <span
+                        className="inline-block h-3 w-3 rounded-full"
+                        style={{ backgroundColor: category.color ?? "#3B82F6" }}
                       />
-                      <span className="text-sm text-gray-600">{category.color}</span>
+                      {category.name_ar}
                     </div>
                   </TableCell>
-                  <TableCell className={isRTL ? "text-left" : "text-right"}>
-                    <div>
-                      <div className="text-sm">{category.createdAt}</div>
-                      <div className="text-xs text-gray-500">{t("admin.blog.updated")}: {category.updatedAt}</div>
-                    </div>
+                  <TableCell>{category.name_en}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {category.description_ar ?? t("common.notAvailable")}
                   </TableCell>
+                  <TableCell>{category.posts_count ?? 0}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -420,31 +331,17 @@ export function BlogCategoriesPage() {
                       <DropdownMenuContent align={isRTL ? "start" : "end"}>
                         <DropdownMenuLabel>{t("admin.blog.actions")}</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleEditCategory(category)}>
-                          <Edit className={`${isRTL ? 'mr-2' : 'ml-2'} h-4 w-4`} />
+                        <DropdownMenuItem onSelect={() => openEditModal(category)}>
+                          <Edit className={`${isRTL ? "mr-2" : "ml-2"} h-4 w-4`} />
                           {t("admin.blog.edit")}
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {editingCategory === category.id ? (
-                          <>
-                            <DropdownMenuItem onClick={handleSaveEdit}>
-                              <CheckCircle className={`${isRTL ? 'mr-2' : 'ml-2'} h-4 w-4`} />
-                              {t("admin.blog.save")}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleCancelEdit}>
-                              <XCircle className={`${isRTL ? 'mr-2' : 'ml-2'} h-4 w-4`} />
-                              {t("admin.blog.cancel")}
-                            </DropdownMenuItem>
-                          </>
-                        ) : (
-                          <DropdownMenuItem 
-                            className="text-red-600"
-                            onClick={() => handleDeleteCategory(category.id)}
-                          >
-                            <Trash2 className={`${isRTL ? 'mr-2' : 'ml-2'} h-4 w-4`} />
-                            {t("admin.blog.delete")}
-                          </DropdownMenuItem>
-                        )}
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onSelect={() => handleDeleteCategory(category.id)}
+                        >
+                          <Trash2 className={`${isRTL ? "mr-2" : "ml-2"} h-4 w-4`} />
+                          {t("admin.blog.delete")}
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -452,6 +349,12 @@ export function BlogCategoriesPage() {
               ))}
             </TableBody>
           </Table>
+          {isLoading && (
+            <div className="p-4 text-center text-sm text-muted-foreground">{t("common.loading")}</div>
+          )}
+          {!isLoading && !categories.length && (
+            <div className="p-4 text-center text-sm text-muted-foreground">{t("common.noData")}</div>
+          )}
         </CardContent>
       </Card>
     </div>

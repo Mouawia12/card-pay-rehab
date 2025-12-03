@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\Concerns\EnsuresAdmin;
 use App\Models\Business;
 use App\Models\Card;
 use App\Models\Customer;
@@ -14,12 +15,11 @@ use Illuminate\Support\Facades\DB;
 
 class AdminDashboardController extends Controller
 {
+    use EnsuresAdmin;
+
     public function summary(Request $request)
     {
-        $user = $request->user();
-        if (! $user || $user->role !== 'admin') {
-            return response()->json(['message' => 'غير مصرح'], 403);
-        }
+        $this->ensureAdmin($request);
 
         $businessesCount = Business::count();
         $usersCount = User::count();

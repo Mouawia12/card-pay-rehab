@@ -10,16 +10,19 @@ import { ArrowLeft, Save, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
+import { createCustomer, type CustomerPayload } from "@/lib/api";
 
 export function AddCustomerPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { isRTL: _isRTL } = useDirection();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [formData, setFormData] = React.useState({
     name: "",
     phone: "",
     email: "",
     birthDate: "",
+    language: "ar",
     gender: "",
     address: "",
     template: "",
@@ -32,7 +35,7 @@ export function AddCustomerPage() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // التحقق من البيانات المطلوبة
@@ -43,32 +46,31 @@ export function AddCustomerPage() {
       return;
     }
 
-    // محاكاة إرسال البيانات
-    toast.loading(t("dashboardPages.messages.addingCustomer"), {
-      description: t("dashboardPages.messages.pleaseWait")
-    });
+    setIsSubmitting(true);
+    try {
+      const payload: CustomerPayload = {
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email || undefined,
+        birth_date: formData.birthDate || undefined,
+        language: formData.language || undefined,
+        metadata: {
+          gender: formData.gender || undefined,
+          address: formData.address || undefined,
+          template: formData.template || undefined,
+        },
+      };
 
-    setTimeout(() => {
-      toast.dismiss();
+      const response = await createCustomer(payload);
       toast.success(t("dashboardPages.messages.customerAddedSuccess"), {
         description: t("dashboardPages.messages.customerAccountCreated", { name: formData.name }),
-        action: {
-          label: t("dashboardPages.messages.viewDetails"),
-          onClick: () => navigate("/dashboard/customers/view/123")
-        }
       });
-      
-      // إعادة تعيين النموذج
-      setFormData({
-        name: "",
-        phone: "",
-        email: "",
-        birthDate: "",
-        gender: "",
-        address: "",
-        template: "",
-      });
-    }, 2000);
+      navigate(`/dashboard/customers/view/${response.data.id}`);
+    } catch (error: any) {
+      toast.error(error?.message || t("common.error"));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleBack = () => {
@@ -145,6 +147,18 @@ export function AddCustomerPage() {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="language">اللغة</Label>
+                    <Select value={formData.language} onValueChange={(value) => handleInputChange("language", value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={t("dashboardPages.forms.languagePlaceholder")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ar">العربية</SelectItem>
+                        <SelectItem value="en">English</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="gender">الجنس</Label>
                     <Select value={formData.gender} onValueChange={(value) => handleInputChange("gender", value)}>
                       <SelectTrigger>
@@ -188,9 +202,9 @@ export function AddCustomerPage() {
                 <Button type="button" variant="outline" onClick={handleBack}>
                   إلغاء
                 </Button>
-                <Button type="submit" className="flex items-center gap-2">
+                <Button type="submit" className="flex items-center gap-2" disabled={isSubmitting}>
                   <Save className="h-4 w-4" />
-                  حفظ العميل
+                  {isSubmitting ? t("common.loading") : "حفظ العميل"}
                 </Button>
               </div>
             </form>

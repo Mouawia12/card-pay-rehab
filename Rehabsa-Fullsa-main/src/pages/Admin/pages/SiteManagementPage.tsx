@@ -7,10 +7,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useDirection } from "@/hooks/useDirection";
 import {
-  getSiteContent,
-  saveSiteContent,
-  resetToDefault,
-  updateSiteContentSection,
+  buildSiteContentFromPartial,
   getDefaultSectionContent,
   type SiteContent,
   type Language,
@@ -24,6 +21,7 @@ import {
   type FooterContent,
   type HeaderContent,
 } from "@/lib/siteContentStorage";
+import { fetchAdminSiteContent, updateAdminSiteSection } from "@/lib/api";
 import { HeroSectionForm } from "./SiteManagement/components/HeroSectionForm";
 import { FeaturesSectionForm } from "./SiteManagement/components/FeaturesSectionForm";
 import { HowItWorksSectionForm } from "./SiteManagement/components/HowItWorksSectionForm";
@@ -52,7 +50,10 @@ export function SiteManagementPage() {
   const { isRTL } = useDirection();
   const [activeSection, setActiveSection] = useState<string>("hero");
   const [activeLanguage, setActiveLanguage] = useState<Language>("ar");
-  const [content, setContent] = useState<SiteContent>(() => getSiteContent("ar"));
+  const [content, setContent] = useState<SiteContent>(() => buildSiteContentFromPartial("ar"));
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savingSection, setSavingSection] = useState<string | null>(null);
   const navigate = useNavigate();
   const { section: sectionParam } = useParams<{ section?: string }>();
 
@@ -71,6 +72,22 @@ export function SiteManagementPage() {
     [t],
   );
   const languageLabel = activeLanguage === "ar" ? "العربية" : "English";
+
+  const loadContent = useCallback(
+    async (language: Language) => {
+      setIsLoading(true);
+      try {
+        const response = await fetchAdminSiteContent(language);
+        setContent(buildSiteContentFromPartial(language, response.data));
+      } catch {
+        toast.error(t("common.error"));
+        setContent(buildSiteContentFromPartial(language));
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [t],
+  );
 
   useEffect(() => {
     const defaultSectionValue = sectionItems[0]?.value ?? "hero";
@@ -91,9 +108,12 @@ export function SiteManagementPage() {
     }
   }, [sectionParam, sectionItems, navigate]);
 
+  useEffect(() => {
+    loadContent(activeLanguage);
+  }, [activeLanguage, loadContent]);
+
   const handleLanguageChange = (newLanguage: Language) => {
-    saveSiteContent(activeLanguage, content);
-    setContent(getSiteContent(newLanguage));
+    if (newLanguage === activeLanguage) return;
     setActiveLanguage(newLanguage);
   };
 
@@ -102,19 +122,39 @@ export function SiteManagementPage() {
     handleLanguageChange(nextLanguage);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setIsSaving(true);
     try {
-      saveSiteContent(activeLanguage, content);
+      const sections = Object.keys(content) as Array<keyof SiteContent>;
+      await Promise.all(
+        sections.map((section) => updateAdminSiteSection(section as string, activeLanguage, content[section])),
+      );
       toast.success(t("common.success"));
-    } catch (error) {
+    } catch {
       toast.error(t("common.error"));
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleReset = () => {
-    const defaults = resetToDefault(activeLanguage);
-    setContent(defaults);
-    toast.success(t("common.success"));
+  const handleReset = async () => {
+    setIsSaving(true);
+    try {
+      const sections = Object.keys(content) as Array<keyof SiteContent>;
+      const defaults = sections.reduce((acc, section) => {
+        acc[section] = getDefaultSectionContent(activeLanguage, section);
+        return acc;
+      }, {} as SiteContent);
+      setContent(defaults);
+      await Promise.all(
+        sections.map((section) => updateAdminSiteSection(section as string, activeLanguage, defaults[section])),
+      );
+      toast.success(t("common.success"));
+    } catch {
+      toast.error(t("common.error"));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const updateContent = useCallback(<K extends keyof SiteContent>(section: K, data: SiteContent[K]) => {
@@ -125,26 +165,32 @@ export function SiteManagementPage() {
   }, []);
 
   const handleSaveSection = useCallback(
-    (section: keyof SiteContent) => {
+    async (section: keyof SiteContent) => {
       try {
-        updateSiteContentSection(activeLanguage, section, content[section]);
+        setSavingSection(section as string);
+        await updateAdminSiteSection(section as string, activeLanguage, content[section]);
         toast.success(t("common.success"));
-      } catch (error) {
+      } catch {
         toast.error(t("common.error"));
+      } finally {
+        setSavingSection(null);
       }
     },
     [activeLanguage, content, t],
   );
 
   const handleResetSection = useCallback(
-    (section: keyof SiteContent) => {
+    async (section: keyof SiteContent) => {
       try {
+        setSavingSection(section as string);
         const defaults = getDefaultSectionContent(activeLanguage, section);
         updateContent(section, defaults);
-        updateSiteContentSection(activeLanguage, section, defaults);
+        await updateAdminSiteSection(section as string, activeLanguage, defaults);
         toast.success(t("common.success"));
-      } catch (error) {
+      } catch {
         toast.error(t("common.error"));
+      } finally {
+        setSavingSection(null);
       }
     },
     [activeLanguage, t, updateContent],
@@ -243,20 +289,20 @@ export function SiteManagementPage() {
               </>
             )}
           </Button>
-          <Button onClick={handleSave} className="flex items-center">
+          <Button onClick={handleSave} className="flex items-center" disabled={isSaving}>
             {isRTL ? (
               <>
-                {t("common.save")}
+                {isSaving ? t("common.loading") : t("common.save")}
                 <Save className="h-4 w-4 mr-2" />
               </>
             ) : (
               <>
                 <Save className="h-4 w-4 ml-2" />
-                {t("common.save")}
+                {isSaving ? t("common.loading") : t("common.save")}
               </>
             )}
           </Button>
-          <Button onClick={handleReset} variant="outline" className="flex items-center">
+          <Button onClick={handleReset} variant="outline" className="flex items-center" disabled={isSaving}>
             {isRTL ? (
               <>
                 {t("common.reset")}
@@ -271,6 +317,11 @@ export function SiteManagementPage() {
           </Button>
         </div>
       </div>
+      {isLoading && (
+        <div className="text-center text-sm text-muted-foreground">
+          {t("common.loading")}
+        </div>
+      )}
 
       <div className="mt-4 flex flex-col gap-4">
         <div
@@ -287,16 +338,17 @@ export function SiteManagementPage() {
               size="sm"
               onClick={() => handleSaveSection(currentSectionKey as keyof SiteContent)}
               className="flex items-center gap-2"
+              disabled={savingSection === currentSectionKey || isSaving}
             >
               {isRTL ? (
                 <>
-                  {t("common.save")}
+                  {savingSection === currentSectionKey ? t("common.loading") : t("common.save")}
                   <Save className="h-4 w-4" />
                 </>
               ) : (
                 <>
                   <Save className="h-4 w-4" />
-                  {t("common.save")}
+                  {savingSection === currentSectionKey ? t("common.loading") : t("common.save")}
                 </>
               )}
             </Button>
@@ -305,6 +357,7 @@ export function SiteManagementPage() {
               variant="outline"
               onClick={() => handleResetSection(currentSectionKey as keyof SiteContent)}
               className="flex items-center gap-2"
+              disabled={savingSection === currentSectionKey || isSaving}
             >
               {isRTL ? (
                 <>
@@ -332,4 +385,3 @@ export function SiteManagementPage() {
     </div>
   );
 }
-

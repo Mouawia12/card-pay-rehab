@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
@@ -33,103 +33,46 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const stores = [
-  {
-    id: "store-1",
-    name: "مقهى النخيل",
-    owner: "أحمد محمد",
-    email: "ahmed@cafe.com",
-    phone: "+966501234567",
-    plan: "المتقدمة",
-    status: "نشط",
-    customers: 1250,
-    cards: 980,
-    revenue: "SAR 12,500",
-    joinDate: "2024-01-15",
-    lastActivity: "2025-01-15",
-    subscriptionEnd: "2025-02-15"
-  },
-  {
-    id: "store-2",
-    name: "صالون الجمال",
-    owner: "فاطمة أحمد",
-    email: "fatima@salon.com",
-    phone: "+966502345678",
-    plan: "الأساسية",
-    status: "نشط",
-    customers: 890,
-    cards: 720,
-    revenue: "SAR 8,900",
-    joinDate: "2024-03-20",
-    lastActivity: "2025-01-14",
-    subscriptionEnd: "2025-03-20"
-  },
-  {
-    id: "store-3",
-    name: "مطعم الشرق",
-    owner: "محمد علي",
-    email: "mohammed@restaurant.com",
-    phone: "+966503456789",
-    plan: "المميزة",
-    status: "نشط",
-    customers: 2100,
-    cards: 1850,
-    revenue: "SAR 21,000",
-    joinDate: "2023-12-10",
-    lastActivity: "2025-01-13",
-    subscriptionEnd: "2025-12-10"
-  },
-  {
-    id: "store-4",
-    name: "صالة الرياضة",
-    owner: "خالد السعد",
-    email: "khalid@gym.com",
-    phone: "+966504567890",
-    plan: "المتقدمة",
-    status: "متوقف",
-    customers: 1560,
-    cards: 1200,
-    revenue: "SAR 15,600",
-    joinDate: "2024-06-05",
-    lastActivity: "2025-01-10",
-    subscriptionEnd: "2025-01-10"
-  },
-  {
-    id: "store-5",
-    name: "مغسلة السيارات",
-    owner: "سعد القحطاني",
-    email: "saad@carwash.com",
-    phone: "+966505678901",
-    plan: "تجريبي",
-    status: "تجريبي",
-    customers: 0,
-    cards: 0,
-    revenue: "SAR 0",
-    joinDate: "2025-01-01",
-    lastActivity: "2025-01-01",
-    subscriptionEnd: "2025-01-31"
-  }
-];
+import { deleteBusiness, fetchAdminStores, type AdminStoresData } from "@/lib/api";
 
 export function StoresPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { isRTL } = useDirection();
-  const [selectedStores, setSelectedStores] = React.useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState("all");
-  const [planFilter, setPlanFilter] = React.useState("all");
+  const [selectedStores, setSelectedStores] = useState<number[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [planFilter, setPlanFilter] = useState("all");
+  const [data, setData] = useState<AdminStoresData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [deletingStoreId, setDeletingStoreId] = useState<number | null>(null);
+  const stores = useMemo(() => data?.stores ?? [], [data]);
+
+  const loadStores = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetchAdminStores();
+      setData(res.data);
+    } catch {
+      toast.error(t("common.error"));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    loadStores();
+  }, [loadStores]);
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedStores(stores.map(store => store.id));
+      setSelectedStores((data?.stores ?? []).map(store => store.id));
     } else {
       setSelectedStores([]);
     }
   };
 
-  const handleSelectStore = (storeId: string, checked: boolean) => {
+  const handleSelectStore = (storeId: number, checked: boolean) => {
     if (checked) {
       setSelectedStores([...selectedStores, storeId]);
     } else {
@@ -150,15 +93,34 @@ export function StoresPage() {
     toast.success(t("admin.stores.notificationSent"));
   };
 
-  const filteredStores = stores.filter(store => {
-    const matchesSearch = store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         store.owner.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         store.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || store.status === statusFilter;
-    const matchesPlan = planFilter === "all" || store.plan === planFilter;
-    
-    return matchesSearch && matchesStatus && matchesPlan;
-  });
+  const handleDeleteStore = async (storeId: number, storeName: string) => {
+    const confirmMessage = t("admin.stores.confirmDelete", { name: storeName });
+    if (!window.confirm(confirmMessage)) return;
+
+    setDeletingStoreId(storeId);
+    try {
+      await deleteBusiness(storeId);
+      toast.success(t("admin.stores.deleteSuccess"));
+      await loadStores();
+    } catch (error: any) {
+      toast.error(error?.message || t("common.error"));
+    } finally {
+      setDeletingStoreId(null);
+    }
+  };
+
+  const filteredStores = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return stores.filter(store => {
+      const matchesSearch =
+        store.name.toLowerCase().includes(term) ||
+        (store.owner ?? "").toLowerCase().includes(term) ||
+        (store.email ?? "").toLowerCase().includes(term);
+      const matchesStatus = statusFilter === "all" || store.status === statusFilter;
+      const matchesPlan = planFilter === "all" || store.plan === planFilter;
+      return matchesSearch && matchesStatus && matchesPlan;
+    });
+  }, [stores, searchTerm, statusFilter, planFilter]);
 
 
   const getStatusBadge = (status: string) => {
@@ -218,28 +180,28 @@ export function StoresPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <AdminStatsCard
           title={t("admin.stores.totalStores")}
-          value={stores.length}
+          value={data?.stats.total_stores ?? 0}
           icon={Store}
           className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20"
           iconColor="text-blue-600"
         />
         <AdminStatsCard
           title={t("admin.stores.totalCustomers")}
-          value={stores.reduce((sum, store) => sum + store.customers, 0).toLocaleString()}
+          value={(data?.stats.total_customers ?? 0).toLocaleString()}
           icon={Users}
           className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20"
           iconColor="text-green-600"
         />
         <AdminStatsCard
           title={t("admin.stores.totalCards")}
-          value={stores.reduce((sum, store) => sum + store.cards, 0).toLocaleString()}
+          value={(data?.stats.total_cards ?? 0).toLocaleString()}
           icon={CreditCard}
           className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-purple-500/20"
           iconColor="text-purple-600"
         />
         <AdminStatsCard
           title={t("admin.stores.activeStores")}
-          value={stores.filter(store => store.status === "نشط").length}
+          value={data?.stats.active_stores ?? 0}
           icon={Users}
           className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/20"
           iconColor="text-orange-600"
@@ -314,7 +276,7 @@ export function StoresPage() {
               <TableRow>
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={selectedStores.length === stores.length}
+                    checked={Boolean(stores.length) && selectedStores.length === stores.length}
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
@@ -358,8 +320,8 @@ export function StoresPage() {
                   </TableCell>
                   <TableCell className={isRTL ? "text-left" : "text-right"}>
                     <div>
-                      <div className="font-medium">{store.owner}</div>
-                      <div className="text-sm text-gray-600">{store.email}</div>
+                      <div className="font-medium">{store.owner ?? t("common.notAvailable")}</div>
+                      <div className="text-sm text-gray-600">{store.email ?? "-"}</div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -378,7 +340,7 @@ export function StoresPage() {
                     {store.revenue}
                   </TableCell>
                   <TableCell className={isRTL ? "text-left" : "text-right"}>
-                    {store.joinDate}
+                    {store.join_date ?? "-"}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -390,17 +352,26 @@ export function StoresPage() {
                       <DropdownMenuContent align={isRTL ? "start" : "end"}>
                         <DropdownMenuLabel>{t("admin.stores.actions")}</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => navigate(`/admin/stores/${store.id}`)}>
+                        <DropdownMenuItem onSelect={(event) => { event.preventDefault(); navigate(`/admin/stores/${store.id}`); }}>
                           <span>{t("admin.stores.view")}</span>
                           <Eye className={`${isRTL ? 'mr-2' : 'ml-2'} h-4 w-4`} />
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => navigate(`/admin/stores/${store.id}/edit`)}>
+                        <DropdownMenuItem onSelect={(event) => { event.preventDefault(); navigate(`/admin/stores/${store.id}/edit`); }}>
                           <span>{t("admin.stores.edit")}</span>
                           <Edit className={`${isRTL ? 'mr-2' : 'ml-2'} h-4 w-4`} />
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600">
-                          <span>{t("admin.stores.delete")}</span>
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            handleDeleteStore(store.id, store.name);
+                          }}
+                          disabled={deletingStoreId === store.id}
+                        >
+                          <span>
+                            {deletingStoreId === store.id ? t("common.loading") : t("admin.stores.delete")}
+                          </span>
                           <Trash2 className={`${isRTL ? 'mr-2' : 'ml-2'} h-4 w-4`} />
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -410,6 +381,11 @@ export function StoresPage() {
               ))}
             </TableBody>
           </Table>
+          {isLoading && (
+            <div className="p-4 text-center text-sm text-muted-foreground">
+              {t("common.loading")}
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -422,6 +422,66 @@ const getDefaultContent = (language: Language): SiteContent => {
   };
 };
 
+const mergeSiteContent = (language: Language, overrides?: Partial<SiteContent>): SiteContent => {
+  const defaults = getDefaultContent(language);
+  const data = overrides ?? {};
+
+  return {
+    hero: { ...defaults.hero, ...(data.hero ?? {}) },
+    features: {
+      ...defaults.features,
+      ...(data.features ?? {}),
+      items: data.features?.items ?? defaults.features.items,
+    },
+    howItWorks: {
+      ...defaults.howItWorks,
+      ...(data.howItWorks ?? {}),
+      steps: data.howItWorks?.steps ?? defaults.howItWorks.steps,
+    },
+    cardTypes: {
+      ...defaults.cardTypes,
+      ...(data.cardTypes ?? {}),
+      types: data.cardTypes?.types ?? defaults.cardTypes.types,
+    },
+    benefits: {
+      ...defaults.benefits,
+      ...(data.benefits ?? {}),
+      items: data.benefits?.items ?? defaults.benefits.items,
+    },
+    pricing: {
+      ...defaults.pricing,
+      ...(data.pricing ?? {}),
+      plans: data.pricing?.plans ?? defaults.pricing.plans,
+    },
+    industries: {
+      ...defaults.industries,
+      ...(data.industries ?? {}),
+      items: data.industries?.items ?? defaults.industries.items,
+    },
+    footer: {
+      ...defaults.footer,
+      ...(data.footer ?? {}),
+      socialLinks: defaults.footer.socialLinks.map((defaultLink, index) => {
+        const parsedLinks = data.footer?.socialLinks;
+        if (Array.isArray(parsedLinks)) {
+          const matchingByKey = parsedLinks.find((link) => link?.key === defaultLink.key);
+          const fallbackLink = matchingByKey ?? parsedLinks[index];
+          return {
+            ...defaultLink,
+            ...fallbackLink,
+          };
+        }
+        return defaultLink;
+      }),
+    },
+    header: { ...defaults.header, ...(data.header ?? {}) },
+  };
+};
+
+export const buildSiteContentFromPartial = (language: Language, overrides?: Partial<SiteContent>) => {
+  return mergeSiteContent(language, overrides);
+};
+
 // Get site content for a specific language
 export const getSiteContent = (language: Language): SiteContent => {
   const storageKey = language === 'ar' ? STORAGE_KEY_AR : STORAGE_KEY_EN;
@@ -430,64 +490,13 @@ export const getSiteContent = (language: Language): SiteContent => {
     const stored = localStorage.getItem(storageKey);
     if (stored) {
       const parsed = JSON.parse(stored);
-      // Merge with defaults to ensure all properties exist
-      const defaults = getDefaultContent(language);
-      return {
-        hero: { ...defaults.hero, ...parsed.hero },
-        features: {
-          ...defaults.features,
-          ...parsed.features,
-          items: parsed.features?.items || defaults.features.items,
-        },
-        howItWorks: {
-          ...defaults.howItWorks,
-          ...parsed.howItWorks,
-          steps: parsed.howItWorks?.steps || defaults.howItWorks.steps,
-        },
-        cardTypes: {
-          ...defaults.cardTypes,
-          ...parsed.cardTypes,
-          types: parsed.cardTypes?.types || defaults.cardTypes.types,
-        },
-        benefits: {
-          ...defaults.benefits,
-          ...parsed.benefits,
-          items: parsed.benefits?.items || defaults.benefits.items,
-        },
-        pricing: {
-          ...defaults.pricing,
-          ...parsed.pricing,
-          plans: parsed.pricing?.plans || defaults.pricing.plans,
-        },
-        industries: {
-          ...defaults.industries,
-          ...parsed.industries,
-          items: parsed.industries?.items || defaults.industries.items,
-        },
-        footer: {
-          ...defaults.footer,
-          ...parsed.footer,
-          socialLinks: defaults.footer.socialLinks.map((defaultLink, index) => {
-            const parsedLinks = parsed.footer?.socialLinks;
-            if (Array.isArray(parsedLinks)) {
-              const matchingByKey = parsedLinks.find((link: FooterSocialLink) => link?.key === defaultLink.key);
-              const fallbackLink = matchingByKey ?? parsedLinks[index];
-              return {
-                ...defaultLink,
-                ...fallbackLink,
-              };
-            }
-            return defaultLink;
-          }),
-        },
-        header: { ...defaults.header, ...parsed.header },
-      };
+      return mergeSiteContent(language, parsed);
     }
   } catch (error) {
     console.error(`Error loading site content for ${language}:`, error);
   }
   
-  return getDefaultContent(language);
+  return mergeSiteContent(language);
 };
 
 // Save site content for a specific language
@@ -539,4 +548,3 @@ export const updateSiteContentSection = <K extends keyof SiteContent>(
   };
   saveSiteContent(language, updatedContent);
 };
-

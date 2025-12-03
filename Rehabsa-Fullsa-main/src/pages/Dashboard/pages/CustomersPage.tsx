@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ import {
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
-import { fetchCustomers } from "@/lib/api";
+import { deleteCustomer, fetchCustomers } from "@/lib/api";
 
 export function CustomersPage() {
   const navigate = useNavigate();
@@ -44,74 +44,74 @@ export function CustomersPage() {
   const [loadingCustomers, setLoadingCustomers] = React.useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deleteBulkDialogOpen, setDeleteBulkDialogOpen] = React.useState(false);
-  const [itemToDelete, setItemToDelete] = React.useState<{ id: string; name: string } | null>(null);
+  const [itemToDelete, setItemToDelete] = React.useState<{ id: number; name: string } | null>(null);
+  const [selectedCustomers, setSelectedCustomers] = React.useState<number[]>([]);
+  const [isBulkDeleting, setIsBulkDeleting] = React.useState(false);
+
+  const loadCustomers = useCallback(async () => {
+    setLoadingCustomers(true);
+    try {
+      const response = await fetchCustomers();
+      const normalized = response.data.map((customer: any) => ({
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        template: customer.active_cards > 0 ? "بطاقة ولاء" : "غير محدد",
+        currentStamps: customer.current_stamps ?? 0,
+        totalStamps: customer.total_stamps ?? 0,
+        availableRewards: customer.available_rewards ?? 0,
+        totalRewards: customer.redeemed_rewards ?? 0,
+        cardInstalled: (customer.active_cards ?? 0) > 0,
+        birthDate: customer.birth_date || "",
+        lastUpdate: customer.last_update || "",
+        createdAt: customer.created_at || "",
+      }));
+
+      setCustomers(normalized);
+      if (!normalized.length) {
+        toast.info(t("dashboardPages.customers.noCustomers") || "لا يوجد عملاء بعد");
+      }
+    } catch (error) {
+      console.error("Failed to fetch customers", error);
+      toast.error(t("dashboardPages.customers.loadError") || "تعذر تحميل العملاء");
+    } finally {
+      setLoadingCustomers(false);
+    }
+  }, [t]);
 
   React.useEffect(() => {
-    const loadCustomers = async () => {
-      setLoadingCustomers(true);
-      try {
-        const response = await fetchCustomers();
-        const normalized = response.data.map((customer: any) => ({
-          id: customer.id,
-          name: customer.name,
-          phone: customer.phone,
-          template: customer.active_cards > 0 ? "بطاقة ولاء" : "غير محدد",
-          currentStamps: customer.current_stamps ?? 0,
-          totalStamps: customer.total_stamps ?? 0,
-          availableRewards: customer.available_rewards ?? 0,
-          totalRewards: customer.redeemed_rewards ?? 0,
-          cardInstalled: (customer.active_cards ?? 0) > 0,
-          birthDate: customer.birth_date || "",
-          lastUpdate: customer.last_update || "",
-          createdAt: customer.created_at || "",
-        }));
-
-        setCustomers(normalized);
-        if (!normalized.length) {
-          toast.info(t("dashboardPages.customers.noCustomers") || "لا يوجد عملاء بعد");
-        }
-      } catch (error) {
-        console.error("Failed to fetch customers", error);
-        toast.error(t("dashboardPages.customers.loadError") || "تعذر تحميل العملاء");
-      } finally {
-        setLoadingCustomers(false);
-      }
-    };
-
     loadCustomers();
-  }, []);
+  }, [loadCustomers]);
 
   const handleAddCustomer = () => {
     navigate("/dashboard/customers/add");
     toast.success(t("dashboardPages.messages.openedAddPage", { item: t("dashboardPages.customers.title") }));
   };
 
-  const handleViewCustomer = (customerId: string) => {
+  const handleViewCustomer = (customerId: number) => {
     navigate(`/dashboard/customers/view/${customerId}`);
-    toast.info(t("dashboardPages.messages.openedDetailsPage", { item: t("dashboardPages.customers.title") }));
   };
 
-  const handleEditCustomer = (customerId: string) => {
+  const handleEditCustomer = (customerId: number) => {
     navigate(`/dashboard/customers/edit/${customerId}`);
-    toast.info(t("dashboardPages.messages.openedEditPage", { item: t("dashboardPages.customers.title") }));
   };
 
-  const handleDeleteCustomer = (customerId: string, customerName: string) => {
+  const handleDeleteCustomer = (customerId: number, customerName: string) => {
     setItemToDelete({ id: customerId, name: customerName });
     setDeleteDialogOpen(true);
   };
 
-  const confirmDeleteCustomer = () => {
-    if (itemToDelete) {
-      toast.error(t("dashboardPages.messages.deletedItem", { item: t("dashboardPages.customers.title"), name: itemToDelete.name }), {
-        description: t("dashboardPages.messages.willReloadPage"),
-        action: {
-          label: t("dashboardPages.messages.undo"),
-          onClick: () => toast.info(t("dashboardPages.messages.undoDelete")),
-        },
-      });
+  const confirmDeleteCustomer = async () => {
+    if (!itemToDelete) return;
+    try {
+      await deleteCustomer(itemToDelete.id);
+      toast.success(t("dashboardPages.messages.deletedItem", { item: itemToDelete.name }));
       setDeleteDialogOpen(false);
       setItemToDelete(null);
+      setSelectedCustomers((prev) => prev.filter((id) => id !== itemToDelete.id));
+      loadCustomers();
+    } catch (error) {
+      toast.error(t("common.error"));
     }
   };
 
@@ -134,14 +134,44 @@ export function CustomersPage() {
   };
 
   const handleBulkDelete = () => {
+    if (!selectedCustomers.length) {
+      toast.error(t("dashboardPages.deleteConfirmation.selectItems"));
+      return;
+    }
     setDeleteBulkDialogOpen(true);
   };
 
-  const confirmBulkDelete = () => {
-    toast.error(t("dashboardPages.messages.bulkDeleteSuccess", { item: t("dashboardPages.customers.title") }), {
-      description: t("dashboardPages.messages.pageWillReload")
+  const confirmBulkDelete = async () => {
+    if (!selectedCustomers.length) return;
+    setIsBulkDeleting(true);
+    try {
+      await Promise.all(selectedCustomers.map((customerId) => deleteCustomer(customerId)));
+      toast.success(t("dashboardPages.messages.bulkDeleteSuccess", { item: t("dashboardPages.customers.title") }));
+      setSelectedCustomers([]);
+      loadCustomers();
+    } catch {
+      toast.error(t("common.error"));
+    } finally {
+      setIsBulkDeleting(false);
+      setDeleteBulkDialogOpen(false);
+    }
+  };
+
+  const toggleSelectCustomer = (customerId: number, checked: boolean) => {
+    setSelectedCustomers((prev) => {
+      if (checked) {
+        return prev.includes(customerId) ? prev : [...prev, customerId];
+      }
+      return prev.filter((id) => id !== customerId);
     });
-    setDeleteBulkDialogOpen(false);
+  };
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedCustomers(customers.map((c) => c.id));
+    } else {
+      setSelectedCustomers([]);
+    }
   };
 
   return (
@@ -223,15 +253,21 @@ export function CustomersPage() {
 
       {/* Action Buttons */}
       <div className={`justify-end mt-6 w-full flex gap-4 text-center items-center max-xsm:flex-col mb-8 ${isRTL ? 'flex-row-reverse' : ''}`}>
-        <Button variant="outline" className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`} disabled>
+        <Button variant="outline" className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`} onClick={handleExport}
+        >
           <Download className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
           {t("dashboardPages.customers.export")}
         </Button>
-        <Button variant="outline" className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`} disabled>
+        <Button variant="outline" className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`} onClick={handleSendNotification}>
           <BellPlus className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
           {t("dashboardPages.customers.sendNotifications")}
         </Button>
-        <Button variant="destructive" className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`} disabled>
+        <Button
+          variant="destructive"
+          className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}
+          onClick={handleBulkDelete}
+          disabled={!selectedCustomers.length}
+        >
           <Trash2 className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
           {t("dashboardPages.customers.deleteCustomers")}
         </Button>
@@ -241,12 +277,21 @@ export function CustomersPage() {
       <div className="relative overflow-x-auto">
         <Card>
           <CardContent className="p-0 overflow-hidden">
+            {loadingCustomers ? (
+              <div className="p-6 text-center text-muted-foreground text-sm">
+                {t("common.loading")}
+              </div>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12 text-xs py-2 relative">
                     <div className="flex items-center justify-start w-full">
-                      <Checkbox />
+                      <Checkbox
+                        checked={Boolean(customers.length && selectedCustomers.length === customers.length)}
+                        onCheckedChange={(checked) => toggleSelectAll(Boolean(checked))}
+                        aria-label={t("dashboardPages.customers.selectAll") || "Select all"}
+                      />
                     </div>
                   </TableHead>
                   <TableHead className="text-xs py-2 min-w-[120px]">
@@ -336,7 +381,11 @@ export function CustomersPage() {
                   <TableRow key={customer.id}>
                     <TableCell className="text-xs py-2">
                       <div className="flex items-center justify-start">
-                        <Checkbox />
+                        <Checkbox
+                          checked={selectedCustomers.includes(customer.id)}
+                          onCheckedChange={(checked) => toggleSelectCustomer(customer.id, Boolean(checked))}
+                          aria-label={t("dashboardPages.customers.selectCustomer") || "Select"}
+                        />
                       </div>
                     </TableCell>
                     <TableCell className="text-xs py-2 whitespace-nowrap">{customer.createdAt}</TableCell>
@@ -388,6 +437,7 @@ export function CustomersPage() {
                 ))}
               </TableBody>
             </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -448,7 +498,7 @@ export function CustomersPage() {
             <AlertDialogTitle>{t("dashboardPages.deleteConfirmation.title")}</AlertDialogTitle>
             <AlertDialogDescription>
               {t("dashboardPages.deleteConfirmation.descriptionBulk", {
-                count: 0 // TODO: Get actual selected count
+                count: selectedCustomers.length
               })}
               <br />
               <span className="text-xs text-muted-foreground mt-2 block">
@@ -461,8 +511,9 @@ export function CustomersPage() {
             <AlertDialogAction
               onClick={confirmBulkDelete}
               className="bg-red-600 hover:bg-red-700 text-white"
+              disabled={isBulkDeleting}
             >
-              {t("dashboardPages.deleteConfirmation.confirm")}
+              {isBulkDeleting ? t("common.loading") : t("dashboardPages.deleteConfirmation.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

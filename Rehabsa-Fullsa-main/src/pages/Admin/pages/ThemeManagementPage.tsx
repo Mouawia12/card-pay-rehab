@@ -18,7 +18,8 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { imageToBase64, hslToHex, hexToHsl, ColorScheme } from "@/lib/themeStorage";
+import { imageToBase64, hslToHex, hexToHsl, ColorScheme, ThemeConfig, defaultThemeConfig } from "@/lib/themeStorage";
+import { fetchAdminSettingGroup, updateAdminSettingGroup } from "@/lib/api";
 
 export function ThemeManagementPage() {
   const { t } = useTranslation();
@@ -26,11 +27,49 @@ export function ThemeManagementPage() {
   const { theme, updateLogo, updateColors, resetTheme, applyTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<"website" | "admin" | "dashboard">("website");
   const [localTheme, setLocalTheme] = useState(theme);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Update local theme when global theme changes
   React.useEffect(() => {
     setLocalTheme(theme);
   }, [theme]);
+
+  const applyRemoteTheme = React.useCallback(
+    (config: ThemeConfig) => {
+      (Object.entries(config.logos) as Array<["website" | "admin" | "dashboard", string]>).forEach(([type, logo]) => {
+        if (logo) {
+          updateLogo(type, logo);
+        }
+      });
+      (Object.entries(config.colors) as Array<["website" | "admin" | "dashboard", ColorScheme]>).forEach(
+        ([type, colors]) => {
+          updateColors(type, colors);
+        },
+      );
+      setLocalTheme(config);
+      applyTheme(activeTab);
+    },
+    [activeTab, applyTheme, updateColors, updateLogo],
+  );
+
+  React.useEffect(() => {
+    const loadThemeConfig = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetchAdminSettingGroup<ThemeConfig>("theme");
+        if (response.data) {
+          applyRemoteTheme(response.data);
+        }
+      } catch {
+        toast.error(t("common.error"));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadThemeConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applyRemoteTheme]);
 
   const handleLogoUpload = async (type: "website" | "admin" | "dashboard", file: File | null) => {
     if (!file) return;
@@ -78,18 +117,33 @@ export function ThemeManagementPage() {
     }));
   };
 
-  const handleSave = () => {
-    // Apply all color changes
-    Object.entries(localTheme.colors).forEach(([type, colors]) => {
-      updateColors(type as "website" | "admin" | "dashboard", colors);
-    });
-    toast.success(t("admin.theme.saved"));
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      Object.entries(localTheme.colors).forEach(([type, colors]) => {
+        updateColors(type as "website" | "admin" | "dashboard", colors);
+      });
+      await updateAdminSettingGroup("theme", localTheme);
+      toast.success(t("admin.theme.saved"));
+    } catch {
+      toast.error(t("common.error"));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleReset = () => {
-    resetTheme();
-    setLocalTheme(theme);
-    toast.success(t("admin.theme.reset"));
+  const handleReset = async () => {
+    setIsSaving(true);
+    try {
+      resetTheme();
+      applyRemoteTheme(defaultThemeConfig);
+      await updateAdminSettingGroup("theme", defaultThemeConfig);
+      toast.success(t("admin.theme.reset"));
+    } catch {
+      toast.error(t("common.error"));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handlePreview = (type: "website" | "admin" | "dashboard") => {
@@ -310,20 +364,20 @@ export function ThemeManagementPage() {
           )}
         </h1>
         <div className={`flex items-center gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
-          <Button onClick={handleSave} className="flex items-center">
+          <Button onClick={handleSave} className="flex items-center" disabled={isSaving}>
             {isRTL ? (
               <>
-                {t("admin.theme.save")}
+                {isSaving ? t("common.loading") : t("admin.theme.save")}
                 <Save className="h-4 w-4 mr-2" />
               </>
             ) : (
               <>
                 <Save className="h-4 w-4 ml-2" />
-                {t("admin.theme.save")}
+                {isSaving ? t("common.loading") : t("admin.theme.save")}
               </>
             )}
           </Button>
-          <Button onClick={handleReset} variant="outline" className="flex items-center">
+          <Button onClick={handleReset} variant="outline" className="flex items-center" disabled={isSaving}>
             {isRTL ? (
               <>
                 {t("admin.theme.reset")}
@@ -338,6 +392,9 @@ export function ThemeManagementPage() {
           </Button>
         </div>
       </div>
+      {isLoading && (
+        <div className="text-sm text-muted-foreground text-center">{t("common.loading")}</div>
+      )}
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
         <TabsList className="grid w-full grid-cols-3">
@@ -466,4 +523,3 @@ export function ThemeManagementPage() {
     </div>
   );
 }
-

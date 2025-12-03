@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AdminStatsCard } from "../components/StatsCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,99 +20,84 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
-
-// Mock data for store details
-const storeDetails = {
-  id: "store-1",
-  name: "مقهى النخيل",
-  owner: "أحمد محمد",
-  email: "ahmed@cafe.com",
-  phone: "+966501234567",
-  address: "شارع الملك فهد، الرياض، المملكة العربية السعودية",
-  plan: "المتقدمة",
-  status: "نشط",
-  joinDate: "2024-01-15",
-  subscriptionEnd: "2025-02-15",
-  lastActivity: "2025-01-15",
-  totalCustomers: 1250,
-  totalCards: 980,
-  monthlyRevenue: "SAR 12,500",
-  totalRevenue: "SAR 150,000",
-  description: "مقهى راقي يقدم أجود أنواع القهوة والحلويات في قلب الرياض"
-};
-
-const storeStats = [
-  {
-    title: "إجمالي العملاء",
-    value: "1,250",
-    change: "+15.3%",
-    changeType: "positive",
-    icon: Users,
-  },
-  {
-    title: "البطاقات الصادرة",
-    value: "980",
-    change: "+12.1%",
-    changeType: "positive",
-    icon: CreditCard,
-  },
-  {
-    title: "الإيرادات الشهرية",
-    value: "SAR 12,500",
-    change: "+8.7%",
-    changeType: "positive",
-    icon: TrendingUp,
-  },
-  {
-    title: "نشاط الشهر",
-    value: "ممتاز",
-    change: "+5.2%",
-    changeType: "positive",
-    icon: Activity,
-  },
-];
-
-const recentCustomers = [
-  {
-    id: 1,
-    name: "محمد أحمد",
-    phone: "+966501234567",
-    joinDate: "2025-01-15",
-    stamps: 8,
-    rewards: 2,
-  },
-  {
-    id: 2,
-    name: "فاطمة علي",
-    phone: "+966502345678",
-    joinDate: "2025-01-14",
-    stamps: 12,
-    rewards: 3,
-  },
-  {
-    id: 3,
-    name: "خالد السعد",
-    phone: "+966503456789",
-    joinDate: "2025-01-13",
-    stamps: 6,
-    rewards: 1,
-  },
-];
-
-const monthlyData = [
-  { month: "يوليو", customers: 45, revenue: 8500 },
-  { month: "أغسطس", customers: 52, revenue: 9200 },
-  { month: "سبتمبر", customers: 48, revenue: 8800 },
-  { month: "أكتوبر", customers: 61, revenue: 10500 },
-  { month: "نوفمبر", customers: 58, revenue: 9800 },
-  { month: "ديسمبر", customers: 67, revenue: 11200 },
-];
+import { fetchAdminStoreDetails, type AdminStoreDetails } from "@/lib/api";
+import { toast } from "sonner";
 
 export function StoreDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { isRTL } = useDirection();
+  const [details, setDetails] = useState<AdminStoreDetails | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetchAdminStoreDetails(id);
+        setDetails(res.data);
+      } catch {
+        toast.error(t("common.error"));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, [id, t]);
+
+  const storeDetails = details?.store;
+  const recentCustomers = details?.recent_customers ?? [];
+  const monthlyData = details?.monthly_data ?? [];
+
+  const storeStats = useMemo(() => {
+    if (!storeDetails) return [];
+    return [
+      {
+        title: t("admin.stores.totalCustomers"),
+        value: storeDetails.total_customers.toLocaleString(),
+        change: "",
+        changeType: "positive",
+        icon: Users,
+      },
+      {
+        title: t("admin.stores.totalCards"),
+        value: storeDetails.total_cards.toLocaleString(),
+        change: "",
+        changeType: "positive",
+        icon: CreditCard,
+      },
+      {
+        title: t("admin.stores.monthlyRevenue"),
+        value: storeDetails.monthly_revenue,
+        change: "",
+        changeType: "positive",
+        icon: TrendingUp,
+      },
+      {
+        title: t("admin.stores.totalRevenue"),
+        value: storeDetails.total_revenue,
+        change: "",
+        changeType: "positive",
+        icon: Activity,
+      },
+    ];
+  }, [storeDetails, t]);
+
+  if (!storeDetails) {
+    return (
+      <div className="flex flex-1 flex-col gap-4 p-4 w-full">
+        <Button variant="outline" onClick={() => navigate("/admin/stores")} className="flex items-center gap-2 flex-row-reverse max-w-max">
+          <ArrowLeft className="h-4 w-4" />
+          {t("admin.stores.backToStores")}
+        </Button>
+        <div className="text-center text-muted-foreground">
+          {isLoading ? t("common.loading") : t("common.noData")}
+        </div>
+      </div>
+    );
+  }
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -184,25 +169,25 @@ export function StoreDetailsPage() {
             <div className={`space-y-4 ${isRTL ? 'text-right' : 'text-left'}`}>
               <div>
                 <h3 className="font-semibold text-lg">{storeDetails.name}</h3>
-                <p className="text-gray-600">{storeDetails.description}</p>
+                <p className="text-gray-600">{storeDetails.description ?? t("common.notAvailable")}</p>
               </div>
               
               <div className="space-y-3">
                 <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <Users className="h-4 w-4 text-gray-500" />
-                  <span className="font-medium">{storeDetails.owner}</span>
+                  <span className="font-medium">{storeDetails.owner ?? t("common.notAvailable")}</span>
                 </div>
                 <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <Mail className="h-4 w-4 text-gray-500" />
-                  <span>{storeDetails.email}</span>
+                  <span>{storeDetails.email ?? "-"}</span>
                 </div>
                 <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <Phone className="h-4 w-4 text-gray-500" />
-                  <span>{storeDetails.phone}</span>
+                  <span>{storeDetails.phone ?? "-"}</span>
                 </div>
                 <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <MapPin className="h-4 w-4 text-gray-500" />
-                  <span>{storeDetails.address}</span>
+                  <span>{storeDetails.address ?? storeDetails.city ?? "-"}</span>
                 </div>
               </div>
             </div>
@@ -213,21 +198,21 @@ export function StoreDetailsPage() {
                   <Calendar className="h-4 w-4 text-gray-500" />
                   <div>
                     <span className="font-medium">{t("admin.stores.joinDate")}: </span>
-                    <span>{storeDetails.joinDate}</span>
+                    <span>{storeDetails.join_date ?? "-"}</span>
                   </div>
                 </div>
                 <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <Calendar className="h-4 w-4 text-gray-500" />
                   <div>
                     <span className="font-medium">{t("admin.stores.subscriptionEnd")}: </span>
-                    <span>{storeDetails.subscriptionEnd}</span>
+                    <span>{storeDetails.subscription_end ?? "-"}</span>
                   </div>
                 </div>
                 <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <Activity className="h-4 w-4 text-gray-500" />
                   <div>
                     <span className="font-medium">{t("admin.stores.lastActivity")}: </span>
-                    <span>{storeDetails.lastActivity}</span>
+                    <span>{storeDetails.last_activity ?? "-"}</span>
                   </div>
                 </div>
               </div>
@@ -238,38 +223,17 @@ export function StoreDetailsPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <AdminStatsCard
-          title={storeStats[0].title}
-          value={storeStats[0].value}
-          icon={storeStats[0].icon}
-          trend={{ value: storeStats[0].change, isPositive: storeStats[0].changeType === "positive" }}
-          className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20"
-          iconColor="text-blue-600"
-        />
-        <AdminStatsCard
-          title={storeStats[1].title}
-          value={storeStats[1].value}
-          icon={storeStats[1].icon}
-          trend={{ value: storeStats[1].change, isPositive: storeStats[1].changeType === "positive" }}
-          className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-purple-500/20"
-          iconColor="text-purple-600"
-        />
-        <AdminStatsCard
-          title={storeStats[2].title}
-          value={storeStats[2].value}
-          icon={storeStats[2].icon}
-          trend={{ value: storeStats[2].change, isPositive: storeStats[2].changeType === "positive" }}
-          className="bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20"
-          iconColor="text-green-600"
-        />
-        <AdminStatsCard
-          title={storeStats[3].title}
-          value={storeStats[3].value}
-          icon={storeStats[3].icon}
-          trend={{ value: storeStats[3].change, isPositive: storeStats[3].changeType === "positive" }}
-          className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/20"
-          iconColor="text-orange-600"
-        />
+        {storeStats.map((stat, idx) => (
+          <AdminStatsCard
+            key={idx}
+            title={stat.title}
+            value={stat.value}
+            icon={stat.icon}
+            trend={{ value: stat.change, isPositive: stat.changeType === "positive" }}
+            className="bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20"
+            iconColor="text-blue-600"
+          />
+        ))}
       </div>
 
       {/* Charts and Tables */}
@@ -318,7 +282,7 @@ export function StoreDetailsPage() {
                     {t("admin.stores.joinDate")}
                   </TableHead>
                   <TableHead className={`${isRTL ? 'text-right' : 'text-left'}`}>
-                    {t("admin.stores.activity")}
+                    {t("admin.stores.phone")}
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -326,19 +290,13 @@ export function StoreDetailsPage() {
                 {recentCustomers.map((customer) => (
                   <TableRow key={customer.id}>
                     <TableCell className={`font-medium ${isRTL ? 'text-right' : 'text-left'}`}>
-                      <div>
-                        <div>{customer.name}</div>
-                        <div className="text-sm text-gray-600">{customer.phone}</div>
-                      </div>
+                      {customer.name}
                     </TableCell>
                     <TableCell className={`${isRTL ? 'text-right' : 'text-left'}`}>
-                      {customer.joinDate}
+                      {customer.join_date ?? "-"}
                     </TableCell>
                     <TableCell className={`${isRTL ? 'text-right' : 'text-left'}`}>
-                      <div>
-                        <div className="text-sm">{customer.stamps} {t("admin.stores.stamps")}</div>
-                        <div className="text-sm text-gray-600">{customer.rewards} {t("admin.stores.rewards")}</div>
-                      </div>
+                      {customer.phone ?? "-"}
                     </TableCell>
                   </TableRow>
                 ))}

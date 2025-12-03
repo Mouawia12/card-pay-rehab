@@ -20,59 +20,101 @@ import {
   Globe,
 } from "lucide-react";
 import { toast } from "sonner";
+import { fetchAdminSettingGroup, updateAdminSettingGroup } from "@/lib/api";
+
+const defaultAdminSettings = {
+  // General Settings
+  siteName: "رحاب - نظام إدارة بطاقات الولاء",
+  siteDescription: "منصة متقدمة لإدارة بطاقات الولاء الرقمية",
+  defaultLanguage: "ar",
+  timezone: "Asia/Riyadh",
+  
+  // Admin Settings
+  adminName: "المسؤول الأعلى",
+  adminEmail: "admin@rehabsa.com",
+  adminPhone: "+966501234567",
+  
+  // Security Settings
+  enableTwoFactor: true,
+  sessionTimeout: 30,
+  maxLoginAttempts: 5,
+  passwordMinLength: 8,
+  
+  // Notification Settings
+  emailNotifications: true,
+  smsNotifications: false,
+  pushNotifications: true,
+  
+  // System Settings
+  maintenanceMode: false,
+  debugMode: false,
+  autoBackup: true,
+  backupFrequency: "daily",
+  
+  // Email Settings
+  smtpHost: "smtp.gmail.com",
+  smtpPort: 587,
+  smtpUsername: "noreply@rehabsa.com",
+  smtpPassword: "********",
+  smtpSecure: true,
+  
+  // SMS Settings
+  smsProvider: "twilio",
+  smsApiKey: "********",
+  smsApiSecret: "********",
+};
+
+const createDefaultSettings = () => JSON.parse(JSON.stringify(defaultAdminSettings));
 
 export function AdminSettingsPage() {
   const { t } = useTranslation();
   const { isRTL } = useDirection();
   const [showPassword, setShowPassword] = React.useState(false);
-  const [settings, setSettings] = React.useState({
-    // General Settings
-    siteName: "رحاب - نظام إدارة بطاقات الولاء",
-    siteDescription: "منصة متقدمة لإدارة بطاقات الولاء الرقمية",
-    defaultLanguage: "ar",
-    timezone: "Asia/Riyadh",
-    
-    // Admin Settings
-    adminName: "المسؤول الأعلى",
-    adminEmail: "admin@rehabsa.com",
-    adminPhone: "+966501234567",
-    
-    // Security Settings
-    enableTwoFactor: true,
-    sessionTimeout: 30,
-    maxLoginAttempts: 5,
-    passwordMinLength: 8,
-    
-    // Notification Settings
-    emailNotifications: true,
-    smsNotifications: false,
-    pushNotifications: true,
-    
-    // System Settings
-    maintenanceMode: false,
-    debugMode: false,
-    autoBackup: true,
-    backupFrequency: "daily",
-    
-    // Email Settings
-    smtpHost: "smtp.gmail.com",
-    smtpPort: 587,
-    smtpUsername: "noreply@rehabsa.com",
-    smtpPassword: "********",
-    smtpSecure: true,
-    
-    // SMS Settings
-    smsProvider: "twilio",
-    smsApiKey: "********",
-    smsApiSecret: "********",
-  });
+  const [settings, setSettings] = React.useState(createDefaultSettings);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
 
-  const handleSaveSettings = () => {
-    toast.success(t("admin.settings.saveSuccess"));
+  React.useEffect(() => {
+    const loadSettings = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetchAdminSettingGroup<typeof defaultAdminSettings>("admin_settings");
+        if (response.data) {
+          setSettings({
+            ...createDefaultSettings(),
+            ...response.data,
+          });
+        }
+      } catch {
+        toast.error(t("common.error"));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadSettings();
+  }, [t]);
+
+  const handleSaveSettings = async () => {
+    setIsSaving(true);
+    try {
+      await updateAdminSettingGroup("admin_settings", settings);
+      toast.success(t("admin.settings.saveSuccess"));
+    } catch {
+      toast.error(t("common.error"));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleResetSettings = () => {
-    toast.success(t("admin.settings.resetSuccess"));
+  const handleResetSettings = async () => {
+    const defaults = createDefaultSettings();
+    setSettings(defaults);
+    try {
+      await updateAdminSettingGroup("admin_settings", defaults);
+      toast.success(t("admin.settings.resetSuccess"));
+    } catch {
+      toast.error(t("common.error"));
+    }
   };
 
   const updateSetting = (key: string, value: any) => {
@@ -88,15 +130,20 @@ export function AdminSettingsPage() {
           {t("admin.settings.title")}
         </h1>
         <div className="flex items-center gap-2">
-          <Button onClick={handleSaveSettings} className={isRTL ? 'text-left' : 'text-right'}>
-            <span>{t("admin.settings.save")}</span>
+          <Button onClick={handleSaveSettings} className={isRTL ? 'text-left' : 'text-right'} disabled={isSaving}>
+            <span>{isSaving ? t("common.loading") : t("admin.settings.save")}</span>
             <Save className={`h-4 w-4 ${isRTL ? 'mr-2' : 'ml-2'}`} />
           </Button>
-          <Button onClick={handleResetSettings} variant="outline" className={isRTL ? 'text-left' : 'text-right'}>
+          <Button onClick={handleResetSettings} variant="outline" className={isRTL ? 'text-left' : 'text-right'} disabled={isSaving}>
             {t("admin.settings.reset")}
           </Button>
         </div>
       </div>
+      {isLoading && (
+        <div className="text-center text-sm text-muted-foreground">
+          {t("common.loading")}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* General Settings */}

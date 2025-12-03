@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,6 +6,25 @@ import { Button } from "@/components/ui/button";
 import { AdminStatsCard } from "../components/StatsCard";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Download,
   Search,
@@ -28,103 +47,130 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const users = [
-  {
-    id: "user-1",
-    name: "أحمد محمد",
-    email: "ahmed@cafe.com",
-    phone: "+966501234567",
-    role: "مالك متجر",
-    store: "مقهى النخيل",
-    status: "نشط",
-    joinDate: "2024-01-15",
-    lastLogin: "2025-01-15",
-    permissions: ["إدارة المتجر", "إدارة العملاء", "إدارة البطاقات"]
-  },
-  {
-    id: "user-2",
-    name: "فاطمة أحمد",
-    email: "fatima@salon.com",
-    phone: "+966502345678",
-    role: "مالك متجر",
-    store: "صالون الجمال",
-    status: "نشط",
-    joinDate: "2024-03-20",
-    lastLogin: "2025-01-14",
-    permissions: ["إدارة المتجر", "إدارة العملاء", "إدارة البطاقات"]
-  },
-  {
-    id: "user-3",
-    name: "محمد علي",
-    email: "mohammed@restaurant.com",
-    phone: "+966503456789",
-    role: "مالك متجر",
-    store: "مطعم الشرق",
-    status: "نشط",
-    joinDate: "2023-12-10",
-    lastLogin: "2025-01-13",
-    permissions: ["إدارة المتجر", "إدارة العملاء", "إدارة البطاقات", "إدارة التقارير"]
-  },
-  {
-    id: "user-4",
-    name: "خالد السعد",
-    email: "khalid@gym.com",
-    phone: "+966504567890",
-    role: "مالك متجر",
-    store: "صالة الرياضة",
-    status: "متوقف",
-    joinDate: "2024-06-05",
-    lastLogin: "2025-01-10",
-    permissions: ["إدارة المتجر", "إدارة العملاء"]
-  },
-  {
-    id: "user-5",
-    name: "سعد القحطاني",
-    email: "saad@carwash.com",
-    phone: "+966505678901",
-    role: "مالك متجر",
-    store: "مغسلة السيارات",
-    status: "تجريبي",
-    joinDate: "2025-01-01",
-    lastLogin: "2025-01-01",
-    permissions: ["إدارة المتجر"]
-  },
-  {
-    id: "user-6",
-    name: "نورا السعيد",
-    email: "nora@cafe.com",
-    phone: "+966506789012",
-    role: "مدير",
-    store: "مقهى النخيل",
-    status: "نشط",
-    joinDate: "2024-08-15",
-    lastLogin: "2025-01-12",
-    permissions: ["إدارة العملاء", "إدارة البطاقات"]
-  }
-];
+import {
+  deleteAdminUser,
+  fetchAdminUsers,
+  updateAdminUser,
+  type AdminUserRecord,
+  type AdminUsersStats,
+} from "@/lib/api";
 
 export function UsersPage() {
   const { t } = useTranslation();
   const { isRTL } = useDirection();
-  const [searchTerm, setSearchTerm] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState("all");
-  const [roleFilter, setRoleFilter] = React.useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [users, setUsers] = useState<AdminUserRecord[]>([]);
+  const [stats, setStats] = useState<AdminUsersStats | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<AdminUserRecord | null>(null);
+  const [userForm, setUserForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    role: "merchant",
+    is_active: true,
+  });
+  const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"view" | "edit">("view");
+  const [isSavingUser, setIsSavingUser] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<AdminUserRecord | null>(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+
+  const loadUsers = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetchAdminUsers();
+      setUsers(response.data.users);
+      setStats(response.data.stats);
+    } catch (error: any) {
+      toast.error(error?.message || t("common.error"));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
   const handleExport = () => {
     toast.success(t("admin.users.exportSuccess"));
   };
 
-  const handleActivateUser = (_userId: string) => {
-    toast.success(t("admin.users.activationSuccess"));
+  const handleToggleStatus = async (user: AdminUserRecord, activate: boolean) => {
+    try {
+      await updateAdminUser(user.id, { is_active: activate });
+      toast.success(t("admin.users.statusUpdated"));
+      await loadUsers();
+    } catch (error: any) {
+      toast.error(error?.message || t("common.error"));
+    }
   };
 
-  const handleDeactivateUser = (_userId: string) => {
-    toast.success(t("admin.users.deactivationSuccess"));
-  };
-
-  const handleSendEmail = (_userId: string) => {
+  const handleSendEmail = (_userId: number) => {
     toast.success(t("admin.users.emailSent"));
+  };
+
+  const openUserDialog = (user: AdminUserRecord, mode: "view" | "edit") => {
+    setSelectedUser(user);
+    setDialogMode(mode);
+    setUserForm({
+      name: user.name,
+      email: user.email,
+      phone: user.phone ?? "",
+      role: user.raw_role,
+      is_active: user.is_active,
+    });
+    setIsUserDialogOpen(true);
+  };
+
+  const handleUserFormChange = (field: string, value: string | boolean) => {
+    setUserForm(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSaveUser = async () => {
+    if (!selectedUser) return;
+    setIsSavingUser(true);
+    try {
+      await updateAdminUser(selectedUser.id, {
+        name: userForm.name,
+        email: userForm.email,
+        phone: userForm.phone,
+        role: userForm.role,
+        is_active: userForm.is_active,
+      });
+      toast.success(t("admin.users.updateSuccess"));
+      setIsUserDialogOpen(false);
+      await loadUsers();
+    } catch (error: any) {
+      toast.error(error?.message || t("common.error"));
+    } finally {
+      setIsSavingUser(false);
+    }
+  };
+
+  const handleDeleteUser = (user: AdminUserRecord) => {
+    setUserToDelete(user);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    setIsDeletingUser(true);
+    try {
+      await deleteAdminUser(userToDelete.id);
+      toast.success(t("admin.users.deleteSuccess"));
+      setUserToDelete(null);
+      await loadUsers();
+    } catch (error: any) {
+      toast.error(error?.message || t("common.error"));
+    } finally {
+      setIsDeletingUser(false);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -159,20 +205,23 @@ export function UsersPage() {
     );
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.store.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || user.status === statusFilter;
-    const matchesRole = roleFilter === "all" || user.role === roleFilter;
-    
-    return matchesSearch && matchesStatus && matchesRole;
-  });
+  const filteredUsers = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return users.filter((user) => {
+      const matchesSearch =
+        user.name.toLowerCase().includes(term) ||
+        user.email.toLowerCase().includes(term) ||
+        (user.store ?? "").toLowerCase().includes(term);
+      const matchesStatus = statusFilter === "all" || user.status === statusFilter;
+      const matchesRole = roleFilter === "all" || user.role === roleFilter;
+      return matchesSearch && matchesStatus && matchesRole;
+    });
+  }, [users, searchTerm, statusFilter, roleFilter]);
 
-  const totalUsers = users.length;
-  const activeUsers = users.filter(user => user.status === "نشط").length;
-  const storeOwners = users.filter(user => user.role === "مالك متجر").length;
-  const managers = users.filter(user => user.role === "مدير").length;
+  const totalUsers = stats?.total ?? 0;
+  const activeUsers = stats?.active ?? 0;
+  const storeOwners = stats?.store_owners ?? 0;
+  const managers = stats?.managers ?? 0;
 
   return (
     <div className={`flex flex-col gap-4 p-4 h-full ${isRTL ? 'font-arabic' : 'font-sans'}`} dir={isRTL ? "rtl" : "ltr"}>
@@ -304,7 +353,7 @@ export function UsersPage() {
                   </TableCell>
                   <TableCell className={isRTL ? "text-left" : "text-right"}>
                     <div>
-                      <div className="text-sm">{user.phone}</div>
+                      <div className="text-sm">{user.phone ?? "-"}</div>
                       <div className="text-sm text-gray-600">{user.email}</div>
                     </div>
                   </TableCell>
@@ -312,16 +361,16 @@ export function UsersPage() {
                     {getRoleBadge(user.role)}
                   </TableCell>
                   <TableCell className={isRTL ? "text-left" : "text-right"}>
-                    {user.store}
+                    {user.store ?? t("common.notAvailable")}
                   </TableCell>
                   <TableCell>
                     {getStatusBadge(user.status)}
                   </TableCell>
                   <TableCell className={isRTL ? "text-left" : "text-right"}>
-                    {user.joinDate}
+                    {user.join_date ?? "-"}
                   </TableCell>
                   <TableCell className={isRTL ? "text-left" : "text-right"}>
-                    {user.lastLogin}
+                    {user.last_login ?? "-"}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -333,11 +382,21 @@ export function UsersPage() {
                       <DropdownMenuContent align={isRTL ? "start" : "end"}>
                         <DropdownMenuLabel>{t("admin.users.actions")}</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            openUserDialog(user, "view");
+                          }}
+                        >
                           <Eye className={`${isRTL ? 'mr-2' : 'ml-2'} h-4 w-4`} />
                           {t("admin.users.view")}
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            openUserDialog(user, "edit");
+                          }}
+                        >
                           <Edit className={`${isRTL ? 'mr-2' : 'ml-2'} h-4 w-4`} />
                           {t("admin.users.edit")}
                         </DropdownMenuItem>
@@ -349,7 +408,10 @@ export function UsersPage() {
                         {user.status === "نشط" ? (
                           <DropdownMenuItem 
                             className="text-orange-600"
-                            onClick={() => handleDeactivateUser(user.id)}
+                            onSelect={(event) => {
+                              event.preventDefault();
+                              handleToggleStatus(user, false);
+                            }}
                           >
                             <UserX className={`${isRTL ? 'mr-2' : 'ml-2'} h-4 w-4`} />
                             {t("admin.users.deactivate")}
@@ -357,13 +419,22 @@ export function UsersPage() {
                         ) : (
                           <DropdownMenuItem 
                             className="text-green-600"
-                            onClick={() => handleActivateUser(user.id)}
+                            onSelect={(event) => {
+                              event.preventDefault();
+                              handleToggleStatus(user, true);
+                            }}
                           >
                             <UserCheck className={`${isRTL ? 'mr-2' : 'ml-2'} h-4 w-4`} />
                             {t("admin.users.activate")}
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem className="text-red-600">
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            handleDeleteUser(user);
+                          }}
+                        >
                           <Trash2 className={`${isRTL ? 'mr-2' : 'ml-2'} h-4 w-4`} />
                           {t("admin.users.delete")}
                         </DropdownMenuItem>
@@ -374,6 +445,11 @@ export function UsersPage() {
               ))}
             </TableBody>
           </Table>
+          {isLoading && (
+            <div className="p-4 text-center text-sm text-muted-foreground">
+              {t("common.loading")}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -383,6 +459,116 @@ export function UsersPage() {
           {t("admin.users.shownFrom", { shown: filteredUsers.length, total: users.length })}
         </p>
       </div>
+
+      <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
+        <DialogContent dir={isRTL ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle>
+              {dialogMode === "view" ? t("admin.users.detailsTitle") : t("admin.users.editTitle")}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="user-name">{t("admin.users.name")}</Label>
+              <Input
+                id="user-name"
+                value={userForm.name}
+                onChange={(e) => handleUserFormChange("name", e.target.value)}
+                disabled={dialogMode === "view"}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="user-email">{t("admin.users.email")}</Label>
+              <Input
+                id="user-email"
+                type="email"
+                value={userForm.email}
+                onChange={(e) => handleUserFormChange("email", e.target.value)}
+                disabled={dialogMode === "view"}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="user-phone">{t("admin.users.phone")}</Label>
+              <Input
+                id="user-phone"
+                value={userForm.phone}
+                onChange={(e) => handleUserFormChange("phone", e.target.value)}
+                disabled={dialogMode === "view"}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="user-role">{t("admin.users.roleLabel")}</Label>
+              <select
+                id="user-role"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={userForm.role}
+                onChange={(e) => handleUserFormChange("role", e.target.value)}
+                disabled={dialogMode === "view"}
+              >
+                <option value="merchant">{t("admin.users.storeOwner")}</option>
+                <option value="staff">{t("admin.users.manager")}</option>
+                <option value="admin">{t("admin.users.employee")}</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="user-status">{t("admin.users.statusLabel")}</Label>
+              <select
+                id="user-status"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={userForm.is_active ? "active" : "inactive"}
+                onChange={(e) => handleUserFormChange("is_active", e.target.value === "active")}
+                disabled={dialogMode === "view"}
+              >
+                <option value="active">{t("admin.users.active")}</option>
+                <option value="inactive">{t("admin.users.inactive")}</option>
+              </select>
+            </div>
+            {selectedUser && (
+              <div className="space-y-2 md:col-span-2">
+                <Label>{t("admin.users.permissions")}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {selectedUser.permissions.length ? (
+                    selectedUser.permissions.map((permission) => (
+                      <Badge key={permission} variant="secondary">
+                        {permission}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">{t("admin.users.noPermissions")}</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          {dialogMode === "edit" && (
+            <DialogFooter className={isRTL ? "flex-row-reverse" : ""}>
+              <Button variant="outline" onClick={() => setIsUserDialogOpen(false)}>
+                {t("admin.users.cancel")}
+              </Button>
+              <Button onClick={handleSaveUser} disabled={isSavingUser}>
+                {isSavingUser ? t("common.loading") : t("admin.users.save")}
+              </Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={Boolean(userToDelete)} onOpenChange={(open) => !open && setUserToDelete(null)}>
+        <AlertDialogContent dir={isRTL ? "rtl" : "ltr"}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("admin.users.delete")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {userToDelete && t("admin.users.deleteConfirm", { name: userToDelete.name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className={isRTL ? "flex-row-reverse" : ""}>
+            <AlertDialogCancel>{t("admin.users.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteUser} disabled={isDeletingUser} className="bg-red-600">
+              {isDeletingUser ? t("common.loading") : t("admin.users.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

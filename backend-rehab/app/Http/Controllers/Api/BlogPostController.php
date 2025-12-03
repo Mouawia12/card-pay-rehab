@@ -17,7 +17,8 @@ class BlogPostController extends Controller
     {
         $status = $request->query('status');
 
-        $posts = BlogPost::with('author')
+        $posts = BlogPost::with(['author', 'category'])
+            ->withCount('comments')
             ->when($status, fn ($q) => $q->where('status', $status))
             ->orderByDesc('published_at')
             ->get()
@@ -29,9 +30,14 @@ class BlogPostController extends Controller
                     'excerpt' => $post->excerpt,
                     'cover_image' => $post->cover_image,
                     'status' => $post->status,
+                    'category' => $post->category?->only(['id', 'name_ar', 'name_en', 'color']),
                     'published_at' => optional($post->published_at)->toIso8601String(),
                     'author' => $post->author?->only(['id', 'name']),
                     'tags' => $post->tags,
+                    'views' => $post->views_count,
+                    'likes' => $post->likes_count,
+                    'comments' => $post->comments_count,
+                    'is_featured' => $post->is_featured,
                 ];
             });
 
@@ -51,6 +57,8 @@ class BlogPostController extends Controller
             'cover_image' => ['nullable', 'string'],
             'status' => ['nullable', Rule::in(['draft', 'published'])],
             'tags' => ['nullable', 'array'],
+            'category_id' => ['nullable', 'exists:blog_categories,id'],
+            'is_featured' => ['nullable', 'boolean'],
         ]);
 
         $post = BlogPost::create([
@@ -69,7 +77,11 @@ class BlogPostController extends Controller
      */
     public function show(string $id)
     {
-        $post = BlogPost::with('author')->where('slug', $id)->orWhere('id', $id)->firstOrFail();
+        $post = BlogPost::with([
+            'author:id,name,email',
+            'category:id,name_ar,name_en,color',
+            'comments',
+        ])->where('slug', $id)->orWhere('id', $id)->firstOrFail();
 
         return response()->json(['data' => $post]);
     }
@@ -89,6 +101,8 @@ class BlogPostController extends Controller
             'cover_image' => ['nullable', 'string'],
             'status' => ['nullable', Rule::in(['draft', 'published'])],
             'tags' => ['nullable', 'array'],
+            'category_id' => ['nullable', 'exists:blog_categories,id'],
+            'is_featured' => ['nullable', 'boolean'],
         ]);
 
         $post->update([
