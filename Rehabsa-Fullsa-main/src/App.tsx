@@ -13,7 +13,6 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import CookiePolicy from "./pages/CookiePolicy";
 import { LoginPage } from "./pages/Auth/LoginPage";
-import { AdminLoginPage } from "./pages/Auth/AdminLoginPage";
 import { RegisterPage } from "./pages/Auth/RegisterPage";
 import { ForgotPasswordPage } from "./pages/Auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/Auth/ResetPasswordPage";
@@ -40,14 +39,14 @@ const AppContent = () => {
         <Route element={<RequireAuth allowedRoles={["admin", "merchant", "staff"]} redirectTo="/login" />}>
           <Route path="/dashboard/*" element={<Dashboard />} />
         </Route>
-        <Route element={<RequireAuth allowedRoles={["admin"]} redirectTo="/admin/login" />}>
+        <Route element={<RequireAuth allowedRoles={["admin"]} redirectTo="/login" />}>
           <Route path="/admin/*" element={<Admin />} />
         </Route>
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
         <Route path="/cookie-policy" element={<CookiePolicy />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route path="/admin/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
