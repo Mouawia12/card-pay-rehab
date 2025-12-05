@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Users, Smile, BellRing } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
+import iosFrame from "@/assets/ios.svg";
 
 interface Location {
   id: number;
@@ -298,7 +299,7 @@ export function NotificationsPage() {
               <div className="overflow-hidden relative w-[300px] max-xsm:w-[200px]">
                 <img
                   alt="Active screen"
-                  src="/dashboard/ios.svg"
+                  src={iosFrame}
                   className="w-full h-full object-contain"
                   loading="lazy"
                 />
@@ -348,7 +349,7 @@ export function NotificationsPage() {
               </div>
               <div className="p-4 flex items-center gap-4">
                 <div className="relative w-24">
-                  <img src="/dashboard/ios.svg" alt="preview" className="w-full" loading="lazy" />
+                  <img src={iosFrame} alt="preview" className="w-full" loading="lazy" />
                   <div className="absolute inset-4 rounded-md bg-black/80 p-2 text-white text-[10px] leading-snug">
                     <div className="flex items-center justify-between mb-1">
                       <span className="flex items-center gap-1 text-[9px]">

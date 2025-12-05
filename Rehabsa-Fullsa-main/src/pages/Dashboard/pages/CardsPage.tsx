@@ -7,6 +7,7 @@ import { useDirection } from "@/hooks/useDirection";
 import { useNavigate } from "react-router-dom";
 import { fetchCards } from "@/lib/api";
 import { toast } from "sonner";
+import iosFrame from "@/assets/ios.svg";
 
 const defaultCards = [
   {
@@ -114,7 +115,7 @@ export function CardsPage() {
               <div className="overflow-hidden relative w-[245px] max-xsm:w-[200px] my-6 max-md:my-4">
                 <img
                   alt="Create card screen"
-                  src="/dashboard/ios.svg"
+                  src={iosFrame}
                   className="w-full h-full object-contain"
                   loading="lazy"
                 />
@@ -183,7 +184,7 @@ export function CardsPage() {
                   <div className="overflow-hidden relative w-[245px] max-xsm:w-[200px] my-6 max-md:my-4">
                     <img
                       alt="Active screen"
-                      src="/dashboard/ios.svg"
+                      src={iosFrame}
                       className="w-full h-full object-contain"
                       loading="lazy"
                     />
