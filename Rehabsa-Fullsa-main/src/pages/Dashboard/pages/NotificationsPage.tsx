@@ -106,6 +106,30 @@ const notificationsHistory: Notification[] = [
   },
 ];
 
+const templatePreviews = [
+  {
+    id: 1,
+    title: "عرض نهاية الأسبوع",
+    description: "خصم 30٪ على جميع باقات الغسيل",
+    message: "ألمع سيارتك هذا الويكند بـ 30٪ خصم! العرض يسري حتى الأحد.",
+    gradient: "from-[#f97316] via-[#fb7185] to-[#f43f5e]",
+  },
+  {
+    id: 2,
+    title: "عملاؤك VIP",
+    description: "رسالة شخصية لكبار العملاء",
+    message: "أهلاً عميلنا المميز! بانتظارك قهوة مجانية مع كل غسيل اليوم.",
+    gradient: "from-[#3b82f6] via-[#6366f1] to-[#8b5cf6]",
+  },
+  {
+    id: 3,
+    title: "تذكير الموعد القادم",
+    description: "ذكّر العملاء بتجديد الاشتراك",
+    message: "لا يفوتك تجديد البطاقة لتحصل على مكافآت إضافية!",
+    gradient: "from-[#14b8a6] via-[#10b981] to-[#22c55e]",
+  },
+];
+
 export function NotificationsPage() {
   const { t } = useTranslation();
   const { isRTL } = useDirection();
@@ -299,6 +323,47 @@ export function NotificationsPage() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Template gallery */}
+      <div className="px-10 mt-12">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-[22px] font-semibold">
+            {t("dashboardPages.notifications.templates") || "تصاميم جاهزة للإشعارات"}
+          </h2>
+          <p className="text-sm text-textGray">
+            {t("dashboardPages.notifications.templatesHint") || "استلهم من هذه الأفكار لتصميم رسائل جذابة"}
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {templatePreviews.map((template) => (
+            <div key={template.id} className="rounded-2xl border border-Gray shadow-sm overflow-hidden">
+              <div className={`h-32 bg-gradient-to-r ${template.gradient} p-4 text-white flex flex-col justify-between`}>
+                <div>
+                  <h3 className="text-lg font-semibold">{template.title}</h3>
+                  <p className="text-sm opacity-80">{template.description}</p>
+                </div>
+              </div>
+              <div className="p-4 flex items-center gap-4">
+                <div className="relative w-24">
+                  <img src="/dashboard/ios.svg" alt="preview" className="w-full" />
+                  <div className="absolute inset-4 rounded-md bg-black/80 p-2 text-white text-[10px] leading-snug">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="flex items-center gap-1 text-[9px]">
+                        <BellRing className="w-3 h-3" /> Rehab QR
+                      </span>
+                      <span>now</span>
+                    </div>
+                    <p className="text-[9px] line-clamp-4">{template.message}</p>
+                  </div>
+                </div>
+                <div className="flex-1 text-sm text-textGray">
+                  <p className="whitespace-pre-line">{template.message}</p>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

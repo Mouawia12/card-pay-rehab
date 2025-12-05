@@ -8,6 +8,41 @@ import { useNavigate } from "react-router-dom";
 import { fetchCards } from "@/lib/api";
 import { toast } from "sonner";
 
+const defaultCards = [
+  {
+    id: 1,
+    name: "نادي اللياقة النخبة",
+    title: "تدرب وادخر",
+    description: "استمتع بمرافقنا الفاخرة واحصل على مكافآت حصرية!",
+    cardId: "477-398-475-609",
+    issueDate: new Date("2025-07-08"),
+    expiryDate: new Date("2027-08-30"),
+    bgColor: "#3498DB",
+    bgOpacity: 0.87,
+    bgImage: "https://reward-loyalty-demo.nowsquare.com/files/126/conversions/1-sm.jpg",
+    textColor: "#ffffff",
+    status: "نشط",
+    currentStage: 2,
+    totalStages: 5,
+  },
+  {
+    id: 2,
+    name: "مغاسل وتلميع تذكار",
+    title: "غسيل احترافي",
+    description: "احصل على خدمات الغسيل والتلميع بجودة عالية ومكافآت مميزة",
+    cardId: "123-456-789-012",
+    issueDate: new Date("2025-01-15"),
+    expiryDate: new Date("2026-01-15"),
+    bgColor: "#1E324A",
+    bgOpacity: 0.9,
+    bgImage: "",
+    textColor: "#ffffff",
+    status: "نشط",
+    currentStage: 1,
+    totalStages: 4,
+  },
+];
+
 export function CardsPage() {
   const { t } = useTranslation();
   const { isRTL } = useDirection();
@@ -37,13 +72,16 @@ export function CardsPage() {
         totalStages: card.total_stages,
       }));
 
-      setCards(remoteCards);
-      if (!remoteCards.length) {
-        toast.info(t("dashboardPages.cards.noCards") || "لا توجد بطاقات حتى الآن");
+      if (remoteCards.length === 0) {
+        toast.info(t("dashboardPages.cards.noCards") || "لا توجد بطاقات حتى الآن، نعرض لك نموذج التصميم.");
+        setCards(defaultCards);
+      } else {
+        setCards(remoteCards);
       }
     } catch (error) {
       console.error("Failed to load cards", error);
-      toast.error(t("dashboardPages.cards.loadError") || "تعذر تحميل البطاقات");
+      toast.error(t("dashboardPages.cards.loadError") || "تعذر تحميل البطاقات، تم إظهار النماذج الجاهزة.");
+      setCards(defaultCards);
     } finally {
       setIsLoading(false);
     }
