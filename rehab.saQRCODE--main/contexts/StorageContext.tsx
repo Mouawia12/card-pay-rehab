@@ -73,7 +73,7 @@ export const StorageProvider: React.FC<StorageProviderProps> = ({ children }) =>
         title: item.note || item.type || 'Transaction',
         cardId: item.card?.card_code || item.reference || 'N/A',
         name: item.customer?.name || 'Unknown',
-        manager: item.product?.name || 'QR Manager',
+        manager: item.scanner?.name || item.product?.name || 'QR Manager',
       }));
 
       setRecords(mapped);
@@ -117,6 +117,7 @@ export const StorageProvider: React.FC<StorageProviderProps> = ({ children }) =>
         amount: 0,
         currency: 'SAR',
         reference: record.cardId,
+        card_code: record.cardId,
         note: record.title,
         happened_at: record.date,
       }),

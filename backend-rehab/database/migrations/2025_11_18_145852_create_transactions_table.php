@@ -17,6 +17,7 @@ return new class extends Migration
             $table->foreignId('card_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('customer_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('product_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('scanned_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('type'); // stamp_awarded | reward_redeemed | purchase | login | system
             $table->decimal('amount', 12, 2)->default(0);
             $table->string('currency')->default('SAR');

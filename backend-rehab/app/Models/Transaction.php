@@ -16,6 +16,7 @@ class Transaction extends Model
         'card_id',
         'customer_id',
         'product_id',
+        'scanned_by',
         'type',
         'amount',
         'currency',
@@ -48,5 +49,10 @@ class Transaction extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function scanner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'scanned_by');
     }
 }

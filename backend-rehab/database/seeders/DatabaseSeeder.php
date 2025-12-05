@@ -214,16 +214,25 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-        Transaction::create([
-            'business_id' => $business->id,
-            'customer_id' => $customers->first()->id,
-            'card_id' => $cardRecords->first()->id,
-            'type' => 'stamp_awarded',
-            'amount' => 0,
-            'currency' => 'SAR',
-            'note' => 'تم إضافة ختم للزيارة الأخيرة',
-            'happened_at' => now()->subDay(),
-        ]);
+        foreach ($customers as $customer) {
+            foreach ($cardRecords as $card) {
+                // create 3 recent transactions per card/customer
+                for ($i = 1; $i <= 3; $i++) {
+                    Transaction::create([
+                        'business_id' => $business->id,
+                        'card_id' => $card->id,
+                        'customer_id' => $customer->id,
+                        'type' => 'stamp_awarded',
+                        'amount' => 0,
+                        'currency' => 'SAR',
+                        'reference' => $card->card_code,
+                        'note' => "إضافة ختم رقم {$i} للعميل {$customer->name}",
+                        'happened_at' => now()->subDays($i + rand(0, 2)),
+                        'scanned_by' => $merchant->id,
+                    ]);
+                }
+            }
+        }
 
         Subscription::updateOrCreate(
             ['business_id' => $business->id],

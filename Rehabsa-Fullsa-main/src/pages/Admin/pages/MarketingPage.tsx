@@ -109,95 +109,6 @@ const emptyCampaignForm: CampaignFormState = {
   currency: "SAR",
 };
 
-const mockMarketingData: AdminMarketingData = {
-  stats: {
-    total_coupons: 2,
-    active_coupons: 2,
-    active_campaigns: 1,
-    total_savings: "SAR 85,000",
-  },
-  coupons: [
-    {
-      id: 1001,
-      code: "MOCK20",
-      type: "percentage",
-      value: 20,
-      discount_text: "20%",
-      min_purchase: 150,
-      usage_count: 120,
-      max_usage: 600,
-      status: "نشط",
-      raw_status: "active",
-      start_date: "2024-01-01",
-      end_date: "2024-12-31",
-      total_savings: "SAR 45,000",
-      total_savings_value: 45000,
-      currency: "SAR",
-    },
-    {
-      id: 1002,
-      code: "VIP150",
-      type: "fixed",
-      value: 150,
-      discount_text: "SAR 150",
-      min_purchase: 500,
-      usage_count: 45,
-      max_usage: 300,
-      status: "نشط",
-      raw_status: "active",
-      start_date: "2024-05-01",
-      end_date: "2024-10-01",
-      total_savings: "SAR 40,000",
-      total_savings_value: 40000,
-      currency: "SAR",
-    },
-  ],
-  campaigns: [
-    {
-      id: 2001,
-      name: "حملة العملاء المميزين",
-      description: "حملة خاصة بالعملاء الأكثر ولاءً مع مزايا إضافية",
-      coupons: ["VIP150"],
-      coupon_ids: [1002],
-      status: "نشط",
-      raw_status: "active",
-      target_audience: "VIP",
-      start_date: "2024-04-01",
-      end_date: "2024-12-31",
-      conversions: 210,
-      roi: "185%",
-      roi_percentage: 185,
-      total_spent: "SAR 20,000",
-      total_revenue: "SAR 57,000",
-      total_spent_value: 20000,
-      total_revenue_value: 57000,
-      currency: "SAR",
-    },
-    {
-      id: 2002,
-      name: "عودة المدارس",
-      description: "حملة موجهة للأسر قبل موسم الدراسة",
-      coupons: ["MOCK20"],
-      coupon_ids: [1001],
-      status: "مسودة",
-      raw_status: "draft",
-      target_audience: "العائلات",
-      start_date: "2024-08-01",
-      end_date: "2024-09-30",
-      conversions: 0,
-      roi: "0%",
-      roi_percentage: 0,
-      total_spent: "SAR 0",
-      total_revenue: "SAR 0",
-      total_spent_value: 0,
-      total_revenue_value: 0,
-      currency: "SAR",
-    },
-  ],
-};
-
-const buildMockMarketingData = (): AdminMarketingData => JSON.parse(JSON.stringify(mockMarketingData));
-
 const parseNumber = (value: string, fallback = 0) => {
   const parsed = Number(value);
   return Number.isNaN(parsed) ? fallback : parsed;
@@ -238,14 +149,10 @@ export function MarketingPage() {
       setIsLoading(true);
       try {
         const response = await fetchAdminMarketing();
-        if (response?.data) {
-          setData(response.data);
-        } else {
-          setData(buildMockMarketingData());
-        }
+        setData(response.data);
       } catch (error: any) {
         toast.error(error?.message || t("common.error"));
-        setData((prev) => prev ?? buildMockMarketingData());
+        setData(null);
       } finally {
         setIsLoading(false);
       }

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Card;
+use App\Models\CardCustomer;
+use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -116,6 +118,82 @@ class CardController extends Controller
                 }),
             ],
         ]);
+    }
+
+    public function assignCustomer(Request $request, Card $card)
+    {
+        $businessId = $request->user()?->business_id ?? $request->input('business_id');
+        if ($businessId && $card->business_id !== $businessId) {
+            return response()->json(['message' => 'غير مسموح بإدارة هذه البطاقة'], 403);
+        }
+
+        $validated = $request->validate([
+            'customer_id' => ['nullable', 'exists:customers,id'],
+            'name' => ['required_without:customer_id', 'string', 'max:255'],
+            'phone' => ['required_without:customer_id', 'string', 'max:30'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'language' => ['nullable', 'string', 'max:5'],
+            'issue_date' => ['nullable', 'date'],
+            'expiry_date' => ['nullable', 'date', 'after_or_equal:issue_date'],
+        ]);
+
+        if ($card->business_id !== ($request->user()?->business_id ?? $card->business_id)) {
+            return response()->json(['message' => 'البطاقة لا تتبع نشاطك التجاري'], 403);
+        }
+
+        if (! empty($validated['customer_id'])) {
+            $customer = Customer::where('business_id', $card->business_id)
+                ->where('id', $validated['customer_id'])
+                ->firstOrFail();
+        } else {
+            $customer = Customer::firstOrCreate(
+                [
+                    'business_id' => $card->business_id,
+                    'phone' => $validated['phone'],
+                ],
+                [
+                    'name' => $validated['name'],
+                    'email' => $validated['email'] ?? null,
+                    'language' => $validated['language'] ?? 'ar',
+                ]
+            );
+        }
+
+        $assignment = CardCustomer::updateOrCreate(
+            [
+                'card_id' => $card->id,
+                'customer_id' => $customer->id,
+            ],
+            [
+                'issue_date' => $validated['issue_date'] ?? now(),
+                'expiry_date' => $validated['expiry_date'] ?? null,
+                'status' => 'active',
+                'total_stages' => $card->total_stages,
+            ]
+        );
+
+        $qrPayload = sprintf(
+            '%s|%s|%s',
+            $customer->name,
+            $request->user()?->name ?? $card->creator?->name ?? 'Merchant',
+            $card->card_code
+        );
+
+        return response()->json([
+            'data' => [
+                'card' => $card->only(['id', 'name', 'card_code', 'total_stages']),
+                'customer' => $customer->only(['id', 'name', 'phone', 'email']),
+                'assignment' => [
+                    'id' => $assignment->id,
+                    'issue_date' => optional($assignment->issue_date)->toDateString(),
+                    'expiry_date' => optional($assignment->expiry_date)->toDateString(),
+                    'current_stage' => $assignment->current_stage,
+                    'total_stages' => $assignment->total_stages,
+                    'available_rewards' => $assignment->available_rewards,
+                ],
+                'qr_payload' => $qrPayload,
+            ],
+        ], 201);
     }
 
     /**

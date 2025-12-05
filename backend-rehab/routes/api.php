@@ -66,6 +66,7 @@ Route::prefix('v1')->group(function () {
 
         Route::apiResource('businesses', BusinessController::class);
         Route::apiResource('cards', CardController::class);
+        Route::post('/cards/{card}/assign', [CardController::class, 'assignCustomer']);
         Route::apiResource('customers', CustomerController::class);
         Route::apiResource('products', ProductController::class);
         Route::apiResource('transactions', TransactionController::class);

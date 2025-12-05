@@ -23,11 +23,45 @@ php artisan serve --host=0.0.0.0 --port=8000
 - `POST /auth/login` → returns `{ user, token }` (email or phone accepted in `email` field).
 - `GET /auth/me` (Bearer token).
 - `GET /cards` / `POST /cards` / `GET /cards/{id}`.
+- `POST /cards/{card}/assign` → يربط عميل ببطاقة ويعيد `qr_payload` بالصيغة `العميل|الموظف|card_code`. يقبل `customer_id` أو بيانات عميل جديدة (اسم + جوال) ويستخدم نشاط المستخدم الحالي.
 - `GET /customers` / `POST /customers` / `GET /customers/{id}`.
 - `GET /products` / `POST /products`.
-- `GET /transactions`.
+- `GET /transactions` → يعيد `{id,type,note,happened_at,card,customer,product,scanner}` حتى تعرض الواجهات اسم الموظف الذي نفذ المسح.
+- `POST /transactions` → يقبل `reference` أو `card_code`، يحدد البطاقة والعميل تلقائياً، ويحدث تقدم البطاقة (`card_customers`) و `last_visit_at`.
 - `GET /blog` and `GET /plans` are public; CRUD requires auth.
 - `GET /dashboard/summary` gives counts + recent activity.
+
+#### API samples
+Assign card to a customer:
+```http
+POST /api/v1/cards/1/assign
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "Ali Test",
+  "phone": "+966500000111",
+  "email": "ali@example.com"
+}
+```
+Response includes `{ data: { card, customer, assignment, qr_payload } }`.
+
+Record a QR scan / stamp:
+```http
+POST /api/v1/transactions
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "type": "stamp_awarded",
+  "amount": 0,
+  "currency": "SAR",
+  "card_code": "123-456-789-012",
+  "note": "إضافة ختم جديد",
+  "happened_at": "2024-12-04T12:00:00+03:00"
+}
+```
+Response mirrors the structure returned by `GET /transactions`.
 
 ### Data model (tables)
 - businesses, users (role: admin/merchant/staff/customer), cards, customers, card_customers (progress + rewards), products, transactions, blog_posts, subscription_plans, business_user pivot.
