@@ -12,11 +12,6 @@ dist
 dist-ssr
 *.local
 
-# Ensure dashboard assets/images are tracked
-!/public/
-!/public/dashboard/
-!/public/dashboard/*
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

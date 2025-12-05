@@ -49,6 +49,7 @@ export function CardsPage() {
   const navigate = useNavigate();
   const [cards, setCards] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [usingFallback, setUsingFallback] = useState(false);
 
   // تحميل البطاقات من الباك اند مباشرةً (بدون بيانات تجريبية)
   const loadCards = async () => {
@@ -75,13 +76,16 @@ export function CardsPage() {
       if (remoteCards.length === 0) {
         toast.info(t("dashboardPages.cards.noCards") || "لا توجد بطاقات حتى الآن، نعرض لك نموذج التصميم.");
         setCards(defaultCards);
+        setUsingFallback(true);
       } else {
         setCards(remoteCards);
+        setUsingFallback(false);
       }
     } catch (error) {
       console.error("Failed to load cards", error);
       toast.error(t("dashboardPages.cards.loadError") || "تعذر تحميل البطاقات، تم إظهار النماذج الجاهزة.");
       setCards(defaultCards);
+      setUsingFallback(true);
     } finally {
       setIsLoading(false);
     }
@@ -97,6 +101,11 @@ export function CardsPage() {
       <h1 className="mb-12 mt-4 text-[24px] font-[500] flex items-center gap-1">
         {t("dashboardPages.cards.title") || "بطاقات"}
       </h1>
+      {usingFallback && (
+        <p className="text-sm text-muted-foreground mb-6">
+          {t("dashboardPages.cards.fallbackMessage") || "نعرض حالياً تصاميم توضيحية إلى أن تقوم بإنشاء بطاقاتك الأولى."}
+        </p>
+      )}
       <div className="ml-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-10">
         {/* Create New Card */}
         <div className="max-md:px-2">
