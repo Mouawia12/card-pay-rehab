@@ -300,6 +300,7 @@ export function NotificationsPage() {
                   alt="Active screen"
                   src="/dashboard/ios.svg"
                   className="w-full h-full object-contain"
+                  loading="lazy"
                 />
                 {/* Notification Preview */}
                 <div className="w-[85%] h-[61%] absolute top-0 translate-y-[105%] right-[50%] translate-x-[50%] rounded-[6px] overflow-hidden">
@@ -347,7 +348,7 @@ export function NotificationsPage() {
               </div>
               <div className="p-4 flex items-center gap-4">
                 <div className="relative w-24">
-                  <img src="/dashboard/ios.svg" alt="preview" className="w-full" />
+                  <img src="/dashboard/ios.svg" alt="preview" className="w-full" loading="lazy" />
                   <div className="absolute inset-4 rounded-md bg-black/80 p-2 text-white text-[10px] leading-snug">
                     <div className="flex items-center justify-between mb-1">
                       <span className="flex items-center gap-1 text-[9px]">

@@ -103,7 +103,12 @@ export function CardsPage() {
           <div className="px-4 flex-[1] flex items-center justify-center max-lg:flex-col max-md:p-0 max-md:mt-0 max-md:m-auto" dir="ltr">
             <div className="relative flex flex-col items-center">
               <div className="overflow-hidden relative w-[245px] max-xsm:w-[200px] my-6 max-md:my-4">
-                <img alt="Create card screen" src="/dashboard/ios.svg" className="w-full h-full object-contain" />
+                <img
+                  alt="Create card screen"
+                  src="/dashboard/ios.svg"
+                  className="w-full h-full object-contain"
+                  loading="lazy"
+                />
                 {/* Plus icon inside iOS frame */}
                 <div className="absolute top-[40%] right-[50%] translate-x-[50%] translate-y-[-50%] flex items-center justify-center">
                   <a href="/dashboard/cards/create" className="cursor-pointer">
@@ -167,7 +172,12 @@ export function CardsPage() {
                     <span className="text-[12px] font-[600]">{card.status}</span>
                   </div>
                   <div className="overflow-hidden relative w-[245px] max-xsm:w-[200px] my-6 max-md:my-4">
-                    <img alt="Active screen" src="/dashboard/ios.svg" className="w-full h-full object-contain" />
+                    <img
+                      alt="Active screen"
+                      src="/dashboard/ios.svg"
+                      className="w-full h-full object-contain"
+                      loading="lazy"
+                    />
                     {/* Card inside iOS frame - متناسق ومحاذي */}
                     <div
                       className="w-[82%] h-[65%] absolute top-[18%] right-[50%] translate-x-[50%] rounded-[8px] shadow-[0px_2px_8px_rgba(0,0,0,0.15)] overflow-hidden bg-fixed bg-center bg-cover bg-no-repeat"
