@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { fetchPublicCard, registerPublicCard, type PublicCardInfo } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,12 @@ import { toast } from "sonner";
 
 export default function NewCustomerPage() {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const cardCode = params.get("card");
   const [card, setCard] = useState<PublicCardInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -19,14 +21,17 @@ export default function NewCustomerPage() {
     const load = async () => {
       if (!cardCode) {
         toast.error("لا يوجد رمز بطاقة");
+        setLoadError("الرابط غير مكتمل، يرجى طلب رابط جديد من التاجر.");
         return;
       }
       try {
         setLoading(true);
+        setLoadError(null);
         const response = await fetchPublicCard(cardCode);
         setCard(response.data);
       } catch (error: any) {
         toast.error(error.message || "تعذر تحميل البطاقة");
+        setLoadError(error.message || "تعذر تحميل البطاقة");
       } finally {
         setLoading(false);
       }
@@ -70,6 +75,16 @@ export default function NewCustomerPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md bg-white shadow-md rounded-md p-6">
+        {loadError ? (
+          <div className="space-y-4 text-center">
+            <h1 className="text-xl font-semibold">تعذر العثور على البطاقة</h1>
+            <p className="text-sm text-gray-600">{loadError}</p>
+            <Button className="w-full" onClick={() => navigate("/#pricing")}>
+              الانتقال لصفحة الاشتراك
+            </Button>
+          </div>
+        ) : (
+        <>
         <h1 className="text-xl font-semibold mb-2 text-center">{card?.name || "تسجيل عميل جديد"}</h1>
         <p className="text-sm text-gray-600 text-center mb-6">{card?.title || card?.description || "أكمل البيانات لإصدار بطاقتك"}</p>
         {loading ? (
@@ -94,6 +109,8 @@ export default function NewCustomerPage() {
               {submitting ? "جاري الإصدار..." : "إصدار البطاقة"}
             </Button>
           </form>
+        )}
+        </>
         )}
       </div>
     </div>

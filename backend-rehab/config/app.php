@@ -82,6 +82,17 @@ return [
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Frontend URL
+    |--------------------------------------------------------------------------
+    |
+    | Used when generating public-facing links (QR codes, shared URLs).
+    | Defaults to APP_URL when the frontend lives on the same origin.
+    |
+    */
+    'frontend_url' => env('FRONTEND_URL', env('APP_URL')),
+
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
     /*

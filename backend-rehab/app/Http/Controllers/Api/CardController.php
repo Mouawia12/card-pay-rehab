@@ -292,7 +292,7 @@ class CardController extends Controller
 
     private function registrationUrl(Card $card): string
     {
-        $base = rtrim(config('app.url'), '/');
+        $base = rtrim(config('app.frontend_url', config('app.url')), '/');
         return $base . '/new-customer?card=' . $card->card_code;
     }
 }
