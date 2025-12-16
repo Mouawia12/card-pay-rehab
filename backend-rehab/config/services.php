@@ -35,4 +35,20 @@ return [
         ],
     ],
 
+    'pkpass' => [
+        'pass_type_id' => env('PKPASS_TYPE_ID', 'pass.com.rehab.demo'),
+        'team_id' => env('PKPASS_TEAM_ID', 'TEAMID1234'),
+        'organization' => env('PKPASS_ORGANIZATION', 'Rehab Loyalty'),
+        'certificate_path' => env('PKPASS_CERTIFICATE_PATH'),
+        'certificate_password' => env('PKPASS_CERTIFICATE_PASSWORD'),
+    ],
+
+    'google_wallet' => [
+        'service_account_json' => env('GOOGLE_WALLET_SERVICE_ACCOUNT'),
+        'issuer_id' => env('GOOGLE_WALLET_ISSUER_ID'),
+        'class_id_prefix' => env('GOOGLE_WALLET_CLASS_PREFIX', 'rehab'),
+        'origin' => env('GOOGLE_WALLET_ORIGIN', env('APP_URL')),
+        'enabled' => env('GOOGLE_WALLET_ENABLED', true),
+    ],
+
 ];

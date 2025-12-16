@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BusinessController;
 use App\Http\Controllers\Api\CardController;
+use App\Http\Controllers\Api\CardInstanceController;
+use App\Http\Controllers\Api\CardTemplateController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\TransactionController;
@@ -22,6 +24,7 @@ use App\Http\Controllers\Api\AdminSystemLogController;
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\BlogCategoryController;
 use App\Http\Controllers\Api\BlogCommentController;
+use App\Http\Controllers\Api\PublicCardRegistrationController;
 
 Route::prefix('v1')->group(function () {
     Route::post('/auth/register', [AuthController::class, 'register']);
@@ -31,6 +34,15 @@ Route::prefix('v1')->group(function () {
     Route::get('/blog/{id}', [BlogPostController::class, 'show']);
     Route::get('/plans', [SubscriptionPlanController::class, 'index']);
     Route::get('/plans/{id}', [SubscriptionPlanController::class, 'show']);
+
+    Route::get('/card-instances/code/{card_code}', [CardInstanceController::class, 'showByCode']);
+    Route::get('/card-instances/code/{card_code}/qr', [CardInstanceController::class, 'qr'])->name('card-instances.qr');
+    Route::get('/card-instances/code/{card_code}/pkpass', [CardInstanceController::class, 'pkpass'])->name('card-instances.pkpass');
+    Route::get('/card-instances/code/{card_code}/google-wallet', [CardInstanceController::class, 'googleWallet'])->name('card-instances.google-wallet');
+    Route::post('/card-instances/code/{card_code}/google-wallet/refresh', [CardInstanceController::class, 'googleWalletRefresh'])->name('card-instances.google-wallet.refresh');
+    Route::get('/cards/code/{card_code}/qr', [CardController::class, 'qrByCode'])->name('cards.qr.public');
+    Route::get('/public/cards/{card_code}', [PublicCardRegistrationController::class, 'show'])->name('public.cards.show');
+    Route::post('/public/cards/{card_code}/register', [PublicCardRegistrationController::class, 'register'])->name('public.cards.register');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
@@ -66,7 +78,12 @@ Route::prefix('v1')->group(function () {
 
         Route::apiResource('businesses', BusinessController::class);
         Route::apiResource('cards', CardController::class);
+        Route::get('/cards/{card}/qr', [CardController::class, 'qr'])->name('cards.qr');
         Route::post('/cards/{card}/assign', [CardController::class, 'assignCustomer']);
+        Route::apiResource('card-templates', CardTemplateController::class)->only(['index', 'show']);
+        Route::apiResource('card-instances', CardInstanceController::class)
+            ->only(['index', 'store', 'show'])
+            ->parameters(['card-instances' => 'cardInstance']);
         Route::apiResource('customers', CustomerController::class);
         Route::apiResource('products', ProductController::class);
         Route::apiResource('transactions', TransactionController::class);

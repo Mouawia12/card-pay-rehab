@@ -7,6 +7,7 @@ use App\Models\BlogComment;
 use App\Models\BlogPost;
 use App\Models\Business;
 use App\Models\Card;
+use App\Models\CardActivation;
 use App\Models\CardCustomer;
 use App\Models\Customer;
 use App\Models\MarketingCampaign;
@@ -21,6 +22,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\SystemLog;
 use App\Models\User;
 use App\Models\Transaction;
+use App\Services\CardCodeGenerator;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -53,6 +55,7 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             AdminUserSeeder::class,
             ControlPanelUserSeeder::class,
+            CardTemplateSeeder::class,
         ]);
 
         $admin = User::where('email', 'admin@rehab-qr.com')->firstOrFail();
@@ -155,24 +158,67 @@ class DatabaseSeeder extends Seeder
             );
         });
 
-        $cardRecords = Card::all();
+        $cardRecords = Card::with('business')->get();
         foreach ($customers as $index => $customer) {
             foreach ($cardRecords as $card) {
-                CardCustomer::updateOrCreate(
+                $cardCode = CardCodeGenerator::make();
+                $qrPayload = sprintf('%s|%s|%s', $customer->name, $card->business?->name ?? 'Rehab QR', $cardCode);
+
+                $assignment = CardCustomer::updateOrCreate(
                     [
                         'card_id' => $card->id,
                         'customer_id' => $customer->id,
                     ],
                     [
+                        'card_code' => $cardCode,
+                        'qr_payload' => $qrPayload,
                         'issue_date' => now()->subDays(5),
                         'expiry_date' => now()->addMonths(6),
                         'current_stage' => $index + 1,
+                        'stamps_count' => $index + 1,
                         'total_stages' => $card->total_stages,
+                        'stamps_target' => $card->total_stages,
                         'available_rewards' => $index % 2,
                         'redeemed_rewards' => $index === 0 ? 1 : 0,
                         'status' => 'active',
+                        'last_scanned_at' => now()->subDays(rand(1, 4)),
+                        'google_object_id' => sprintf('demoIssuer.%s', Str::slug($cardCode, '_')),
+                        'google_class_id' => sprintf('demoIssuer.%s_demo', Str::slug($card->id . '_' . $card->name, '_')),
+                        'last_google_update' => now()->subDays(rand(1, 5)),
                     ]
                 );
+
+                if ($index % 2 === 0) {
+                    $assignment->update(['apple_wallet_installed_at' => now()->subDays(2)]);
+                    CardActivation::create([
+                        'card_id' => $card->id,
+                        'card_customer_id' => $assignment->id,
+                        'customer_id' => $customer->id,
+                        'business_id' => $business->id,
+                        'channel' => 'pkpass',
+                        'device_type' => 'iPhone',
+                        'device_identifier' => Str::uuid()->toString(),
+                        'activated_at' => now()->subDays(rand(1, 5)),
+                        'metadata' => ['seed' => $index],
+                    ]);
+                }
+
+                Transaction::create([
+                    'business_id' => $business->id,
+                    'card_id' => $card->id,
+                    'customer_id' => $customer->id,
+                    'type' => 'stamp_awarded',
+                    'amount' => rand(20, 80),
+                    'currency' => 'SAR',
+                    'reference' => $assignment->card_code,
+                    'note' => 'تم تسجيل زيارة من التطبيق',
+                    'happened_at' => now()->subDays(rand(1, 10)),
+                    'scanned_by' => $merchant->id,
+                    'metadata' => [
+                        'card_customer_id' => $assignment->id,
+                        'stamps_awarded' => 1,
+                    ],
+                ]);
             }
         }
 

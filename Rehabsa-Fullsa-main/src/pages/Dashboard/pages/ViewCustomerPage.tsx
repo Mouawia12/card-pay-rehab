@@ -14,11 +14,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Edit, Trash2, Phone, Mail, Calendar, MapPin } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, Phone, Mail, Calendar, MapPin, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
-import { deleteCustomer, fetchCustomer, type CustomerDetails } from "@/lib/api";
+import { deleteCustomer, fetchCustomer, generateGoogleWalletLink, refreshGoogleWallet, type CustomerDetails, API_BASE_URL } from "@/lib/api";
 
 export function ViewCustomerPage() {
   const { id } = useParams();
@@ -29,6 +29,8 @@ export function ViewCustomerPage() {
   const [customer, setCustomer] = React.useState<CustomerDetails | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [googleWalletLoading, setGoogleWalletLoading] = React.useState<string | null>(null);
+  const [googleRefreshLoading, setGoogleRefreshLoading] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const loadCustomer = async () => {
@@ -71,8 +73,58 @@ export function ViewCustomerPage() {
     }
   };
 
+  const handleGoogleWallet = async (cardCode?: string | null) => {
+    if (!cardCode) {
+      toast.error("لا يوجد رمز للبطاقة");
+      return;
+    }
+
+    try {
+      setGoogleWalletLoading(cardCode);
+      const response = await generateGoogleWalletLink(cardCode);
+      const url = response.data.save_url || (response.data.jwt ? `https://pay.google.com/gp/v/save/${response.data.jwt}` : null);
+      if (!url) {
+        toast.error("تعذر استلام رابط Google Wallet");
+        return;
+      }
+      window.open(url, "_blank");
+    } catch (error: any) {
+      toast.error(error.message || "تعذر إنشاء بطاقة Google Wallet");
+    } finally {
+      setGoogleWalletLoading(null);
+    }
+  };
+
+  const handleRefreshGoogleWallet = async (cardCode?: string | null) => {
+    if (!cardCode) {
+      toast.error("لا يوجد رمز للبطاقة");
+      return;
+    }
+
+    try {
+      setGoogleRefreshLoading(cardCode);
+      const response = await refreshGoogleWallet(cardCode);
+      toast.success("تم تحديث Google Wallet", {
+        description: response.data.last_google_update ? `آخر تحديث: ${formatDateTime(response.data.last_google_update)}` : undefined,
+      });
+    } catch (error: any) {
+      toast.error(error.message || "تعذر تحديث Google Wallet");
+    } finally {
+      setGoogleRefreshLoading(null);
+    }
+  };
+
   const handleBack = () => {
     navigate("/dashboard/customers");
+  };
+
+  const formatDateTime = (value?: string | null) => {
+    if (!value) return "-";
+    try {
+      return new Date(value).toLocaleString();
+    } catch {
+      return value;
+    }
   };
 
   return (
@@ -164,20 +216,72 @@ export function ViewCustomerPage() {
               <CardContent className="space-y-4">
                 {customer.cards.length ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {customer.cards.map((card, index) => (
-                      <div key={card.card?.id ?? index} className="border rounded-md p-3 space-y-2">
-                        <p className="text-sm font-medium text-muted-foreground">{card.card?.name ?? "بطاقة"}</p>
-                        <p className="text-xs text-muted-foreground">الكود: {card.card?.card_code ?? "-"}</p>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span>المرحلة الحالية: {card.current_stage}</span>
-                          <span>إجمالي المراحل: {card.total_stages}</span>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span>المكافآت المتاحة: {card.available_rewards}</span>
-                          <span>الحالة: {card.status ?? "-"}</span>
-                        </div>
+                    {customer.cards.map((card, index) => {
+                      const cardCode = card.card_code ?? card.card?.card_code ?? "-";
+                      const qrLink = card.qr_url || (cardCode !== "-" ? `${API_BASE_URL}/card-instances/code/${cardCode}/qr` : undefined);
+                      const passLink = card.pkpass_url || (cardCode !== "-" ? `${API_BASE_URL}/card-instances/code/${cardCode}/pkpass` : undefined);
+                      const googleLink = card.google_wallet_url || (cardCode !== "-" ? `${API_BASE_URL}/card-instances/code/${cardCode}/google-wallet` : undefined);
+                      return (
+                        <div key={card.card?.id ?? index} className="border rounded-md p-3 space-y-2">
+                          <p className="text-sm font-medium text-muted-foreground">{card.card?.name ?? "بطاقة ولاء"}</p>
+                          <p className="text-xs text-muted-foreground">الكود: {cardCode}</p>
+                      <div className="flex items-center gap-4 text-sm">
+                        <span>المرحلة الحالية: {card.current_stage}</span>
+                        <span>إجمالي المراحل: {card.total_stages}</span>
                       </div>
-                    ))}
+                      <div className="flex items-center gap-4 text-sm">
+                        <span>الأختام: {card.stamps_count ?? card.current_stage} / {card.stamps_target ?? card.total_stages}</span>
+                        <span>المكافآت: {card.available_rewards}</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>آخر مزامنة Google Wallet: {formatDateTime(card.last_google_update)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>الحالة: {card.status ?? "-"}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {qrLink ? (
+                              <Button asChild variant="outline" size="sm" className="text-xs">
+                                <a href={qrLink} target="_blank" rel="noreferrer">
+                                  <Download className="h-3 w-3 mr-1" /> تنزيل QR
+                                </a>
+                              </Button>
+                            ) : null}
+                            {passLink ? (
+                              <Button asChild variant="ghost" size="sm" className="text-xs">
+                                <a href={passLink} target="_blank" rel="noreferrer">
+                                  <Download className="h-3 w-3 mr-1" /> بطاقة Apple Wallet
+                                </a>
+                              </Button>
+                            ) : null}
+                            {googleLink ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => handleGoogleWallet(cardCode)}
+                                disabled={googleWalletLoading === cardCode}
+                              >
+                                {googleWalletLoading === cardCode ? "..." : <><Download className="h-3 w-3 mr-1" /> Google Wallet</>}
+                              </Button>
+                            ) : null}
+                            {card.google_object_id ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => handleRefreshGoogleWallet(cardCode)}
+                                disabled={googleRefreshLoading === cardCode}
+                              >
+                                {googleRefreshLoading === cardCode ? "..." : "تحديث Google Wallet"}
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">لا توجد بطاقات مرتبطة.</p>
@@ -208,7 +312,7 @@ export function ViewCustomerPage() {
                       <div key={transaction.id} className="flex items-center justify-between text-sm">
                         <div>
                           <p className="font-semibold">{transaction.type}</p>
-                          <p className="text-muted-foreground text-xs">{transaction.happened_at ?? "-"}</p>
+                          <p className="text-muted-foreground text-xs">{transaction.reference ?? transaction.happened_at ?? "-"}</p>
                         </div>
                         <Badge variant="outline" className="text-xs text-green-600 border-green-200">
                           {transaction.amount} {transaction.currency}

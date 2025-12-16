@@ -22,8 +22,8 @@ class CustomerController extends Controller
             ->orderByDesc('created_at')
             ->get()
             ->map(function (Customer $customer) {
-                $currentStages = $customer->cardCustomers->sum('current_stage');
-                $totalStages = max(1, $customer->cardCustomers->sum('total_stages'));
+                $currentStages = $customer->cardCustomers->sum('stamps_count');
+                $totalStages = max(1, $customer->cardCustomers->sum('stamps_target'));
                 $availableRewards = $customer->cardCustomers->sum('available_rewards');
                 $redeemedRewards = $customer->cardCustomers->sum('redeemed_rewards');
 
@@ -73,7 +73,11 @@ class CustomerController extends Controller
      */
     public function show(string $id)
     {
-        $customer = Customer::with(['cardCustomers.card', 'transactions' => fn ($q) => $q->latest()->limit(10)])
+        $customer = Customer::with([
+            'cardCustomers.card',
+            'cardCustomers.googleActivations',
+            'transactions' => fn ($q) => $q->latest()->limit(10),
+        ])
             ->findOrFail($id);
 
         return response()->json([
@@ -88,11 +92,23 @@ class CustomerController extends Controller
                 'last_visit_at' => optional($customer->last_visit_at)->toIso8601String(),
                 'cards' => $customer->cardCustomers->map(function ($record) {
                     return [
-                        'card' => $record->card?->only(['id', 'name', 'card_code']),
+                        'card' => array_merge(
+                            $record->card?->only(['id', 'name']) ?? [],
+                            ['card_code' => $record->card_code]
+                        ),
                         'current_stage' => $record->current_stage,
                         'total_stages' => $record->total_stages,
+                        'stamps_count' => $record->stamps_count,
+                        'stamps_target' => $record->stamps_target,
                         'available_rewards' => $record->available_rewards,
                         'status' => $record->status,
+                        'qr_url' => route('card-instances.qr', ['card_code' => $record->card_code]),
+                        'pkpass_url' => route('card-instances.pkpass', ['card_code' => $record->card_code]),
+                        'google_wallet_url' => route('card-instances.google-wallet', ['card_code' => $record->card_code]),
+                        'google_wallet_installed_at' => optional($record->googleActivations->sortByDesc('activated_at')->first()?->activated_at)->toIso8601String(),
+                        'google_object_id' => $record->google_object_id,
+                        'google_class_id' => $record->google_class_id,
+                        'last_google_update' => optional($record->last_google_update)->toIso8601String(),
                     ];
                 }),
                 'recent_transactions' => $customer->transactions->map(function ($transaction) {
@@ -102,6 +118,7 @@ class CustomerController extends Controller
                         'amount' => $transaction->amount,
                         'currency' => $transaction->currency,
                         'note' => $transaction->note,
+                        'reference' => $transaction->reference,
                         'happened_at' => optional($transaction->happened_at)->toIso8601String(),
                     ];
                 }),

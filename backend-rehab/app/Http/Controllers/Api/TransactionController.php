@@ -7,10 +7,15 @@ use App\Models\Card;
 use App\Models\CardCustomer;
 use App\Models\Customer;
 use App\Models\Transaction;
+use App\Services\GoogleWalletService;
 use Illuminate\Http\Request;
 
 class TransactionController extends Controller
 {
+    public function __construct(private readonly GoogleWalletService $googleWalletService)
+    {
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -58,6 +63,7 @@ class TransactionController extends Controller
             'card_code' => ['nullable', 'string', 'max:255'],
             'note' => ['nullable', 'string'],
             'happened_at' => ['nullable', 'date'],
+            'stamps_awarded' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $businessId = $request->user()?->business_id ?? $request->input('business_id');
@@ -68,43 +74,37 @@ class TransactionController extends Controller
             $card = Card::find($validated['card_id']);
         }
 
-        if (! $card && $request->filled('card_code')) {
-            $card = Card::where('card_code', $request->input('card_code'))->first();
-            if (! $card) {
+        $issuedCard = null;
+
+        if ($request->filled('card_code')) {
+            $issuedCard = CardCustomer::with(['card', 'customer'])->where('card_code', $request->string('card_code'))->first();
+            if (! $issuedCard) {
                 return response()->json([
-                    'message' => 'البطاقة غير معروفة. يرجى إنشاء البطاقة أو التأكد من رمز QR.',
+                    'message' => 'رقم البطاقة غير معروف. تأكد من استخدام رمز QR الصحيح.',
                 ], 422);
             }
+
+            $card = $issuedCard->card;
+            $customer = $issuedCard->customer;
+            $validated['card_id'] = $card?->id;
+            $validated['customer_id'] = $customer?->id;
+            $validated['reference'] = $validated['reference'] ?? $issuedCard->card_code;
+            $businessId = $businessId ?: $card?->business_id;
         }
 
-        if (! $card && $request->filled('reference')) {
-            $card = Card::where('card_code', $request->input('reference'))->first();
-        }
-
-        $cardCustomer = null;
-
-        if ($card) {
-            $businessId = $businessId ?: $card->business_id;
-            if (! $request->filled('customer_id')) {
-                $cardCustomer = CardCustomer::where('card_id', $card->id)
+        if (! $issuedCard && $request->filled('card_id')) {
+            $card = Card::find($validated['card_id']);
+            if ($card) {
+                $businessId = $businessId ?: $card->business_id;
+                $issuedCard = CardCustomer::where('card_id', $card->id)
+                    ->when($request->filled('customer_id'), fn ($q) => $q->where('customer_id', $validated['customer_id']))
                     ->latest('issue_date')
                     ->first();
-                $customer = $cardCustomer?->customer;
-                if ($customer) {
-                    $validated['customer_id'] = $customer->id;
-                }
-            } else {
-                $customer = Customer::find($validated['customer_id']);
-                if ($customer) {
-                    $cardCustomer = CardCustomer::where('card_id', $card->id)
-                        ->where('customer_id', $customer->id)
-                        ->first();
-                }
+                $customer = $issuedCard?->customer ?? ($request->filled('customer_id') ? Customer::find($validated['customer_id']) : null);
             }
+        }
 
-            $validated['card_id'] = $card->id;
-            $validated['reference'] = $validated['reference'] ?? $card->card_code;
-        } elseif (! $businessId) {
+        if (! $businessId) {
             $businessId = $request->user()?->business_id;
         }
 
@@ -113,29 +113,46 @@ class TransactionController extends Controller
             'business_id' => $businessId,
             'currency' => $validated['currency'] ?? 'SAR',
             'scanned_by' => $request->user()?->id,
+            'metadata' => [
+                'card_customer_id' => $issuedCard?->id,
+                'stamps_awarded' => $request->input('stamps_awarded', 1),
+            ],
         ]);
 
-        if ($card && $customer && ! $cardCustomer) {
-            $cardCustomer = CardCustomer::create([
-                'card_id' => $card->id,
-                'customer_id' => $customer->id,
-                'issue_date' => now(),
-                'total_stages' => $card->total_stages,
-                'current_stage' => 0,
-                'status' => 'active',
-            ]);
-        }
-
-        if ($cardCustomer) {
-            $cardCustomer->current_stage = min(
-                $cardCustomer->total_stages,
-                $cardCustomer->current_stage + 1
-            );
-            if ($cardCustomer->current_stage >= $cardCustomer->total_stages && $cardCustomer->total_stages > 0) {
-                $cardCustomer->available_rewards += 1;
-                $cardCustomer->current_stage = 0;
+        if ($issuedCard) {
+            $increment = max(1, (int) $request->input('stamps_awarded', 1));
+            $issuedCard->stamps_count += $increment;
+            $issuedCard->current_stage = min($issuedCard->total_stages, $issuedCard->current_stage + $increment);
+            if ($issuedCard->current_stage >= $issuedCard->total_stages && $issuedCard->total_stages > 0) {
+                $issuedCard->available_rewards += 1;
+                $issuedCard->current_stage = 0;
             }
-            $cardCustomer->save();
+            $issuedCard->last_scanned_at = now();
+            $issuedCard->save();
+
+            if ($issuedCard->google_object_id) {
+                try {
+                    $this->googleWalletService->updateLoyaltyObject($issuedCard->google_object_id, [
+                        'loyaltyPoints' => [
+                            'label' => 'Points',
+                            'balance' => ['string' => (string) $issuedCard->stamps_count],
+                        ],
+                        'infoModuleData' => [
+                            'labelValueRows' => [
+                                [
+                                    'columns' => [
+                                        ['label' => 'Stamps', 'value' => (string) $issuedCard->stamps_count],
+                                        ['label' => 'Target', 'value' => (string) ($issuedCard->stamps_target ?: $issuedCard->total_stages ?: 0)],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]);
+                    $issuedCard->update(['last_google_update' => now()]);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
         }
 
         if ($customer) {

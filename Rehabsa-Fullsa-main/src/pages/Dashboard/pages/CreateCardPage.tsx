@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Dot, Info, Stamp, DollarSign, Ellipsis, Apple, Trash2, File, Star, Smile, Plane, Car, Heart, Gift, Crown, Trophy, Coffee, ShoppingBag } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { createCard, fetchCard, updateCard, type CardPayload } from "@/lib/api";
 import { NumberInput } from "@/components/ui/number-input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
@@ -19,12 +20,57 @@ interface FormField {
   required: boolean;
 }
 
+const DEFAULT_COLORS = {
+  backgroundColor: "#FFFFFF",
+  textColor: "#000000",
+  middleAreaBg: "#FFFFFF",
+  activeStamp: "#FF0000",
+  stampBackground: "#f2f1f1cd",
+  borderColor: "#000000",
+  inactiveStamp: "#CCCCCC",
+};
+
+const DEFAULT_FORM_FIELDS: FormField[] = [
+  { id: "1", type: "FName", name: "الاسم الأول", required: true },
+  { id: "2", type: "LName", name: "اسم العائلة", required: true },
+  { id: "3", type: "phone", name: "رقم الجوال", required: true },
+  { id: "4", type: "dob", name: "تاريخ الميلاد", required: false },
+];
+
+const DEFAULT_CARD_NAME = "Stamps Card";
+const DEFAULT_CARD_DESCRIPTION = "اجمع الاختام واحصل على هدية 🎁";
+const DEFAULT_HOW_TO_EARN = "احصل علي ختم عند كل عملية شراء";
+const DEFAULT_COMPANY_NAME = "مغاسل وتلميع تذكار";
+const DEFAULT_SOURCE_COMPANY = "rehabsa";
+const DEFAULT_SOURCE_EMAIL = "support@rehabsa.com";
+const DEFAULT_COUNTRY_CODE = "+966";
+const DEFAULT_PHONE_NUMBER = "547669684";
+const DEFAULT_TERMS_OF_USE = `1. احصل على ختم واحد مع كل عملية شراء.
+
+2. اجمع الطوابع للحصول على المكافآت.
+
+3. تاريخ انتهاء صلاحية البطاقة والأختام والمكافآت غير محدود.
+
+4. لا يمكن استبدال الأختام والمكافآت أو إرجاعها أو استبدالها أو شراؤها نقدًا.
+
+5. لا يمكن نقل البطاقات أو دمجها مع بطاقات أخرى.
+
+6. تحتفظ الشركة بالحق في رفض تقديم الخدمات.`;
+
 export function CreateCardPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [cardName, setCardName] = useState("Stamps Card");
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit");
+  const [loadingCard, setLoadingCard] = useState(false);
+  const isEditing = Boolean(editId);
+  const [cardName, setCardName] = useState(DEFAULT_CARD_NAME);
   const [activeTab, setActiveTab] = useState("نوع البطاقة");
   const [selectedCardType, setSelectedCardType] = useState<number | null>(0);
+  const [selectedTemplateMeta, setSelectedTemplateMeta] = useState<any | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [issueDateValue, setIssueDateValue] = useState<string | null>(null);
+  const [expiryDateValue, setExpiryDateValue] = useState<string | null>(null);
   
   // Settings state
   const [expiryType, setExpiryType] = useState("unlimited");
@@ -34,12 +80,7 @@ export function CreateCardPage() {
   const [maxStampsPerDay, setMaxStampsPerDay] = useState(0);
   const [requireProductSelection, setRequireProductSelection] = useState(false);
   const [minAmountForStamps, setMinAmountForStamps] = useState(1);
-  const [formFields, setFormFields] = useState<FormField[]>([
-    { id: "1", type: "FName", name: "الاسم الأول", required: true },
-    { id: "2", type: "LName", name: "اسم العائلة", required: true },
-    { id: "3", type: "phone", name: "رقم الجوال", required: true },
-    { id: "4", type: "dob", name: "تاريخ الميلاد", required: false },
-  ]);
+  const [formFields, setFormFields] = useState<FormField[]>(DEFAULT_FORM_FIELDS);
   const [selectedLocation, setSelectedLocation] = useState("");
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showCardUsagePolicy, setShowCardUsagePolicy] = useState(true);
@@ -62,15 +103,7 @@ export function CreateCardPage() {
     { value: "Coffee", icon: Coffee, label: "قهوة", svgPath: "M10 2v2M14 2v2M5.5 9.5c.8 0 1.5.7 1.5 1.5s-.7 1.5-1.5 1.5S4 11.8 4 11s.7-1.5 1.5-1.5zM2 18c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-6H2v6zM18 7c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v6h16V7z" },
     { value: "ShoppingBag", icon: ShoppingBag, label: "حقيبة تسوق", svgPath: "M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0" },
   ];
-  const [colors, setColors] = useState({
-    backgroundColor: "#FFFFFF",
-    textColor: "#000000",
-    middleAreaBg: "#FFFFFF",
-    activeStamp: "#FF0000",
-    stampBackground: "#f2f1f1cd",
-    borderColor: "#000000",
-    inactiveStamp: "#CCCCCC",
-  });
+  const [colors, setColors] = useState(DEFAULT_COLORS);
   
   // File refs
   const activeStampFileRef = useRef<HTMLInputElement>(null);
@@ -80,49 +113,35 @@ export function CreateCardPage() {
   const pushIconFileRef = useRef<HTMLInputElement>(null);
   
   // Information tab state
-  const [cardDescription, setCardDescription] = useState("اجمع الاختام واحصل على هدية 🎁");
-  const [howToEarnStamp, setHowToEarnStamp] = useState("احصل علي ختم عند كل عملية شراء");
-  const [companyName, setCompanyName] = useState("مغاسل وتلميع تذكار");
-  const [termsOfUse, setTermsOfUse] = useState(`1. احصل على ختم واحد مع كل عملية شراء.
-
-2. اجمع الطوابع للحصول على المكافآت.
-
-3. تاريخ انتهاء صلاحية البطاقة والأختام والمكافآت غير محدود.
-
-4. لا يمكن استبدال الأختام والمكافآت أو إرجاعها أو استبدالها أو شراؤها نقدًا.
-
-5. لا يمكن نقل البطاقات أو دمجها مع بطاقات أخرى.
-
-6. تحتفظ الشركة بالحق في رفض تقديم الخدمات.`);
-  const [sourceCompanyName, setSourceCompanyName] = useState("rehabsa");
-  const [sourceEmail, setSourceEmail] = useState("support@rehabsa.com");
-  const [countryCode, setCountryCode] = useState("+966");
-  const [phoneNumber, setPhoneNumber] = useState("547669684");
+  const [cardDescription, setCardDescription] = useState(DEFAULT_CARD_DESCRIPTION);
+  const [howToEarnStamp, setHowToEarnStamp] = useState(DEFAULT_HOW_TO_EARN);
+  const [companyName, setCompanyName] = useState(DEFAULT_COMPANY_NAME);
+  const [termsOfUse, setTermsOfUse] = useState(DEFAULT_TERMS_OF_USE);
+  const [sourceCompanyName, setSourceCompanyName] = useState(DEFAULT_SOURCE_COMPANY);
+  const [sourceEmail, setSourceEmail] = useState(DEFAULT_SOURCE_EMAIL);
+  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_CODE);
+  const [phoneNumber, setPhoneNumber] = useState(DEFAULT_PHONE_NUMBER);
 
   const tabs = ["نوع البطاقة", "الإعدادات", "التصميم", "المعلومات"];
 
   // تحميل بيانات القالب من localStorage عند تحميل الصفحة
   useEffect(() => {
+    if (isEditing) {
+      return;
+    }
     const savedTemplate = localStorage.getItem('selected_template');
     if (savedTemplate) {
       try {
         const template = JSON.parse(savedTemplate);
         
         // تحميل بيانات القالب إلى state
+        setSelectedTemplateMeta(template);
         setCardName(template.name || "Stamps Card");
         setSelectedCardType(template.cardType !== undefined ? template.cardType : 0);
         setStampsCount(template.totalStages || 6);
         setActiveStampType(template.activeStampType || "Star");
         setInactiveStampType(template.inactiveStampType || "Star");
-        setColors(template.colors || {
-          backgroundColor: "#FFFFFF",
-          textColor: "#000000",
-          middleAreaBg: "#FFFFFF",
-          activeStamp: "#FF0000",
-          stampBackground: "#f2f1f1cd",
-          borderColor: "#000000",
-          inactiveStamp: "#CCCCCC",
-        });
+        setColors(template.colors || DEFAULT_COLORS);
         setCardDescription(template.cardDescription || "اجمع الاختام واحصل على هدية 🎁");
         setHowToEarnStamp(template.howToEarnStamp || "احصل علي ختم عند كل عملية شراء");
         setCompanyName(template.companyName || "مغاسل وتلميع تذكار");
@@ -148,6 +167,91 @@ export function CreateCardPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!isEditing || !editId) {
+      return;
+    }
+
+    const loadCardDetails = async () => {
+      setLoadingCard(true);
+      const loadingId = toast.loading("جاري تحميل بيانات البطاقة...");
+      try {
+        const response = await fetchCard(editId);
+        const data = response.data;
+        const settings = data.settings ?? {};
+        const computedColors = {
+          backgroundColor: settings.colors?.backgroundColor ?? data.bg_color ?? DEFAULT_COLORS.backgroundColor,
+          textColor: settings.colors?.textColor ?? data.text_color ?? DEFAULT_COLORS.textColor,
+          middleAreaBg: settings.colors?.middleAreaBg ?? DEFAULT_COLORS.middleAreaBg,
+          activeStamp: settings.colors?.activeStamp ?? DEFAULT_COLORS.activeStamp,
+          stampBackground: settings.colors?.stampBackground ?? DEFAULT_COLORS.stampBackground,
+          borderColor: settings.colors?.borderColor ?? DEFAULT_COLORS.borderColor,
+          inactiveStamp: settings.colors?.inactiveStamp ?? DEFAULT_COLORS.inactiveStamp,
+        };
+
+        setColors(computedColors);
+        setSelectedTemplateMeta({
+          id: settings.templateId,
+          bgColor: data.bg_color,
+          bgOpacity: data.bg_opacity,
+          bgImage: data.bg_image,
+          textColor: data.text_color,
+        });
+        setCardName(data.name ?? DEFAULT_CARD_NAME);
+        setSelectedCardType(typeof settings.cardType === "number" ? settings.cardType : 0);
+        setStampsCount(data.total_stages ?? settings.totalStages ?? 6);
+        setActiveStampType(settings.activeStampType || "Star");
+        setInactiveStampType(settings.inactiveStampType || "Star");
+        setCardDescription(settings.cardDescription || data.title || DEFAULT_CARD_DESCRIPTION);
+        setHowToEarnStamp(settings.howToEarnStamp || data.description || DEFAULT_HOW_TO_EARN);
+        setCompanyName(settings.companyName || DEFAULT_COMPANY_NAME);
+        setTermsOfUse(settings.termsOfUse || DEFAULT_TERMS_OF_USE);
+        setSourceCompanyName(settings.sourceCompanyName || DEFAULT_SOURCE_COMPANY);
+        setSourceEmail(settings.sourceEmail || DEFAULT_SOURCE_EMAIL);
+        const detectedCountryCode = settings.countryCode || DEFAULT_COUNTRY_CODE;
+        setCountryCode(detectedCountryCode);
+        const savedPhone = settings.phoneNumber || "";
+        const normalizedPhone = savedPhone.startsWith(detectedCountryCode)
+          ? savedPhone.slice(detectedCountryCode.length)
+          : savedPhone;
+        setPhoneNumber(normalizedPhone || DEFAULT_PHONE_NUMBER);
+        setCustomStamps(Boolean(settings.customStamps));
+        setCardLimit(Number(settings.cardLimit) || 0);
+        setInitialStamps(Number(settings.initialStamps) || 0);
+        setMaxStampsPerTransaction(Number(settings.maxStampsPerTransaction) || 0);
+        setMaxStampsPerDay(Number(settings.maxStampsPerDay) || 0);
+        setRequireProductSelection(Boolean(settings.requireProductSelection));
+        setMinAmountForStamps(Number(settings.minAmountForStamps) || 1);
+        setSelectedLocation(settings.selectedLocation || "");
+        setShowPrivacyPolicy(Boolean(settings.showPrivacyPolicy));
+        setShowCardUsagePolicy(settings.showCardUsagePolicy === undefined ? true : Boolean(settings.showCardUsagePolicy));
+        const fields = Array.isArray(settings.formFields) && settings.formFields.length
+          ? settings.formFields.map((field: any, index: number) => ({
+              id: field.id ?? `${index}-${Date.now()}`,
+              type: field.type ?? "FName",
+              name: field.name ?? "",
+              required: Boolean(field.required),
+            }))
+          : DEFAULT_FORM_FIELDS.map((field, index) => ({
+              ...field,
+              id: field.id ?? `${index}-${Date.now()}`,
+            }));
+        setFormFields(fields);
+        setIssueDateValue(data.issue_date ?? null);
+        setExpiryDateValue(data.expiry_date ?? null);
+        setExpiryType(settings.expiryType || (data.expiry_date ? "date" : "unlimited"));
+      } catch (error: any) {
+        toast.error(error.message || "تعذر تحميل البطاقة");
+        navigate("/dashboard/cards");
+      } finally {
+        toast.dismiss(loadingId);
+        setLoadingCard(false);
+      }
+    };
+
+    loadCardDetails();
+  }, [isEditing, editId, navigate]);
+
   // دالة للتنقل إلى التبويب التالي
   const handleNextTab = () => {
     const currentIndex = tabs.indexOf(activeTab);
@@ -162,7 +266,10 @@ export function CreateCardPage() {
       e.preventDefault();
     }
 
-    // التحقق من البيانات المطلوبة
+    if (isSubmitting) {
+      return;
+    }
+
     if (!cardName.trim()) {
       toast.error("يرجى إدخال اسم البطاقة");
       return;
@@ -188,60 +295,90 @@ export function CreateCardPage() {
       return;
     }
 
-    // عرض رسالة loading
-    toast.loading("جاري إنشاء البطاقة...", {
+    if (loadingCard) {
+      toast.info("يرجى انتظار تحميل بيانات البطاقة");
+      return;
+    }
+
+    const actionMessage = isEditing ? "جاري تحديث البطاقة..." : "جاري إنشاء البطاقة...";
+    const toastId = toast.loading(actionMessage, {
       description: "يرجى الانتظار"
     });
 
-    // محاكاة حفظ البيانات (API call)
-    setTimeout(() => {
-      // إنشاء كائن البطاقة
-      const newCard = {
-        id: Date.now(), // استخدام timestamp كـ ID
-        name: cardName,
-        title: cardDescription,
-        description: howToEarnStamp,
-        cardId: `${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 900) + 100}`,
-        issueDate: new Date().toISOString(),
-        expiryDate: expiryType === "unlimited" ? null : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // سنة واحدة من الآن إذا لم يكن غير محدود
-        bgColor: colors.backgroundColor === "#FFFFFF" ? "#1E324A" : colors.backgroundColor,
-        bgOpacity: 0.9,
-        bgImage: "",
-        textColor: colors.textColor === "#000000" ? "#ffffff" : colors.textColor,
-        status: "نشط",
-        currentStage: 1,
-        totalStages: stampsCount,
+    const nowIso = new Date().toISOString();
+    const resolvedIssueDate = issueDateValue ?? nowIso;
+    const resolvedExpiryDate = expiryType === "unlimited" ? null : (expiryDateValue ?? null);
+    const resolvedBgColor = colors.backgroundColor || selectedTemplateMeta?.bgColor || DEFAULT_COLORS.backgroundColor;
+    const resolvedTextColor = colors.textColor || selectedTemplateMeta?.textColor || DEFAULT_COLORS.textColor;
+    const resolvedBgImage = selectedTemplateMeta?.bgImage || "";
+    const resolvedBgOpacity = typeof selectedTemplateMeta?.bgOpacity === "number" ? selectedTemplateMeta.bgOpacity : 0.9;
+
+    const payload: CardPayload = {
+      name: cardName.trim(),
+      title: cardDescription,
+      description: howToEarnStamp,
+      issue_date: resolvedIssueDate,
+      expiry_date: resolvedExpiryDate,
+      bg_color: resolvedBgColor,
+      bg_opacity: resolvedBgOpacity,
+      bg_image: resolvedBgImage,
+      text_color: resolvedTextColor,
+      status: "active",
+      total_stages: stampsCount,
+      current_stage: isEditing ? undefined : 0,
+      settings: {
+        templateId: selectedTemplateMeta?.id,
         cardType: selectedCardType,
-        companyName: companyName,
-        termsOfUse: termsOfUse,
-        sourceCompanyName: sourceCompanyName,
-        sourceEmail: sourceEmail,
-        phoneNumber: `${countryCode}${phoneNumber}`,
-        colors: colors,
-        stampsCount: stampsCount,
-        activeStampType: activeStampType,
-        inactiveStampType: inactiveStampType,
-      };
+        colors,
+        cardDescription,
+        howToEarnStamp,
+        companyName,
+        termsOfUse,
+        sourceCompanyName,
+        sourceEmail,
+        phoneNumber,
+        countryCode,
+        fullPhoneNumber: `${countryCode}${phoneNumber}`,
+        activeStampType,
+        inactiveStampType,
+        customStamps,
+        cardLimit,
+        initialStamps,
+        maxStampsPerTransaction,
+        maxStampsPerDay,
+        requireProductSelection,
+        minAmountForStamps,
+        formFields,
+        selectedLocation,
+        showPrivacyPolicy,
+        showCardUsagePolicy,
+        expiryType,
+        issueDateValue: resolvedIssueDate,
+        expiryDateValue: resolvedExpiryDate,
+      },
+    };
 
-      // الحصول على البطاقات المحفوظة من localStorage
-      const savedCards = JSON.parse(localStorage.getItem("dashboard_cards") || "[]");
-      
-      // إضافة البطاقة الجديدة
-      savedCards.push(newCard);
-      
-      // حفظ البطاقات في localStorage
-      localStorage.setItem("dashboard_cards", JSON.stringify(savedCards));
-
-      toast.dismiss();
-      toast.success("تم إنشاء البطاقة بنجاح!", {
-        description: `تم إنشاء البطاقة "${cardName}" بنجاح`
-      });
-      
-      // التوجيه إلى صفحة البطاقات بعد ثانيتين
-      setTimeout(() => {
+    try {
+      setIsSubmitting(true);
+      if (isEditing && editId) {
+        await updateCard(editId, payload);
+        toast.success("تم تحديث البطاقة بنجاح!", {
+          description: `تم تحديث البطاقة "${cardName}"`
+        });
+        navigate(`/dashboard/cards/${editId}`);
+      } else {
+        await createCard(payload);
+        toast.success("تم إنشاء البطاقة بنجاح!", {
+          description: `تم إنشاء البطاقة "${cardName}" بنجاح`
+        });
         navigate("/dashboard/cards");
-      }, 2000);
-    }, 2000);
+      }
+    } catch (error: any) {
+      toast.error(error.message || "تعذر إنشاء البطاقة");
+    } finally {
+      toast.dismiss(toastId);
+      setIsSubmitting(false);
+    }
   };
 
   const cardTypes = [
@@ -260,6 +397,14 @@ export function CreateCardPage() {
       badgeColor: "border-primary text-primary",
     },
   ];
+
+  if (loadingCard) {
+    return (
+      <div className="px-10 py-14">
+        <p className="text-sm text-muted-foreground">جاري تحميل بيانات البطاقة...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="px-10 py-6">
@@ -1292,6 +1437,7 @@ export function CreateCardPage() {
                 <button 
                   type="button"
                   onClick={handleSaveCard}
+                  disabled={isSubmitting}
                   className="w-full main-btn py-1 flex items-center justify-center mt-4"
                 >
                   Finish
@@ -1570,7 +1716,7 @@ export function CreateCardPage() {
                 </div>
               )}
               <h2 className="my-2 text-[20px] font-[500] text-center max-sm:text-[18px]">{cardName}</h2>
-              <div className="w-full flex justify-center mb-14">
+              <div className="w-full flex justify-center gap-3 mb-14">
                 <button className="main-btn w-[170px] py-2 max-sm:w-[150px] max-sm:px-1 max-sm:py-0">
                   التفاصيل
                 </button>
@@ -1614,4 +1760,3 @@ export function CreateCardPage() {
     </div>
   );
 }
-

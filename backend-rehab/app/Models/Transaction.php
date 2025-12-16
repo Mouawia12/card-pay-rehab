@@ -8,6 +8,7 @@ use App\Models\Business;
 use App\Models\Card;
 use App\Models\Customer;
 use App\Models\Product;
+use App\Models\User;
 
 class Transaction extends Model
 {

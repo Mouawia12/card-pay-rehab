@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { Dot, Star, Trash2, Edit, Download, BellPlus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Search, Filter } from "lucide-react";
+import { Dot, Star, Trash2, Download, BellPlus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Search, Filter } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,12 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
-
-// بيانات وهمية للعملاء
-const mockCustomers = [
-  { id: "1", name: "بتال الشهراني", phone: "+966559953343", template: "مغاسل وتلميع تذكار", currentStamps: 0, totalStamps: 0, rewards: 0, totalRewards: 0, installed: false, birthDate: "", createdAt: "11/2/2025 10:31:07 PM", lastUpdate: "11/2/2025 10:31:07 PM" },
-  { id: "2", name: "SHEKH SAIM", phone: "+966561960461", template: "مغاسل وتلميع تذكار", currentStamps: 1, totalStamps: 1, rewards: 0, totalRewards: 0, installed: true, birthDate: "", createdAt: "11/2/2025 6:27:50 PM", lastUpdate: "11/2/2025 6:28:26 PM" },
-];
+import { fetchCard, deleteCard, generateGoogleWalletLink } from "@/lib/api";
 
 export function ViewCardPage() {
   const { id } = useParams<{ id: string }>();
@@ -36,60 +31,81 @@ export function ViewCardPage() {
   const [card, setCard] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [walletLoadingCode, setWalletLoadingCode] = useState<string | null>(null);
+
+  const formatDateTime = (value?: string | null) => {
+    if (!value) {
+      return "-";
+    }
+    try {
+      return format(new Date(value), "dd/MM/yyyy hh:mm a", { locale: ar });
+    } catch {
+      return value;
+    }
+  };
 
   useEffect(() => {
-    // تحميل البطاقة من localStorage
-    const loadCard = () => {
-      const savedCards = JSON.parse(localStorage.getItem("dashboard_cards") || "[]");
-      const defaultCards = [
-        {
-          id: 1,
-          name: "نادي اللياقة النخبة",
-          title: "تدرب وادخر",
-          description: "استمتع بمرافقنا الفاخرة واحصل على مكافآت حصرية!",
-          cardId: "477-398-475-609",
-          issueDate: new Date("2025-07-08").toISOString(),
-          expiryDate: new Date("2027-08-30").toISOString(),
-          bgColor: "#3498DB",
-          bgOpacity: 0.87,
-          bgImage: "",
-          textColor: "#ffffff",
-          status: "نشط",
-          currentStage: 2,
-          totalStages: 5,
-        },
-        {
-          id: 2,
-          name: "مغاسل وتلميع تذكار",
-          title: "غسيل احترافي",
-          description: "احصل على خدمات الغسيل والتلميع بجودة عالية ومكافآت مميزة",
-          cardId: "123-456-789-012",
-          issueDate: new Date("2025-01-15").toISOString(),
-          expiryDate: new Date("2026-01-15").toISOString(),
-          bgColor: "#1E324A",
-          bgOpacity: 0.9,
-          bgImage: "",
-          textColor: "#ffffff",
-          status: "نشط",
-          currentStage: 1,
-          totalStages: 4,
-        },
-      ];
+    if (!id) {
+      navigate("/dashboard/cards");
+      return;
+    }
 
-      const allCards = [...defaultCards, ...savedCards];
-      const foundCard = allCards.find((c) => c.id.toString() === id || c.id === Number(id));
-      
-      if (foundCard) {
-        setCard({
-          ...foundCard,
-          issueDate: foundCard.issueDate ? new Date(foundCard.issueDate) : new Date(),
-          expiryDate: foundCard.expiryDate ? new Date(foundCard.expiryDate) : null,
-        });
-      } else {
-        toast.error("البطاقة غير موجودة");
+    const loadCard = async () => {
+      setLoading(true);
+      try {
+        const response = await fetchCard(id);
+        const data = response.data as any;
+        const settings = data.settings ?? {};
+          const mappedCard = {
+          id: data.id,
+          name: data.name,
+          title: data.title ?? settings.cardDescription ?? data.description,
+          description: data.description ?? settings.howToEarnStamp ?? "",
+          cardId: data.card_code,
+          registrationUrl: data.registration_url,
+          qrTemplateUrl: data.qr_template_url,
+          issueDate: data.issue_date ? new Date(data.issue_date) : null,
+          expiryDate: data.expiry_date ? new Date(data.expiry_date) : null,
+          bgColor: data.bg_color ?? settings.colors?.backgroundColor ?? "#1E324A",
+          bgOpacity: data.bg_opacity ?? 0.9,
+          bgImage: data.bg_image ?? "",
+          textColor: data.text_color ?? settings.colors?.textColor ?? "#ffffff",
+          status: data.status === "paused" ? "موقوف" : "نشط",
+          currentStage: data.current_stage ?? 0,
+          totalStages: data.total_stages ?? settings.totalStages ?? 0,
+          cardType: settings.cardType ?? 0,
+          settings,
+        };
+
+        const mappedCustomers = (data.customers ?? []).map((record: any) => ({
+          id: record.id,
+          createdAt: record.issue_date,
+          name: record.customer?.name ?? "—",
+          phone: record.customer?.phone ?? "—",
+          template: data.name ?? "",
+          currentStamps: record.stamps_count ?? record.current_stage ?? 0,
+          totalStamps: record.stamps_target ?? record.total_stages ?? mappedCard.totalStages,
+          rewards: record.available_rewards ?? 0,
+          totalRewards: record.redeemed_rewards ?? 0,
+          installed: Boolean(record.apple_wallet_installed_at),
+          googleInstalled: Boolean(record.google_wallet_installed_at),
+          birthDate: record.customer?.birth_date ?? "",
+          lastUpdate: record.last_scanned_at ?? "",
+          cardCode: record.card_code,
+          pkpassUrl: record.pkpass_url,
+          googleWalletUrl: record.google_wallet_url,
+        }));
+
+        setCard(mappedCard);
+        setCustomers(mappedCustomers);
+      } catch (error: any) {
+        toast.error(error.message || "البطاقة غير موجودة");
         navigate("/dashboard/cards");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     loadCard();
@@ -99,13 +115,44 @@ export function ViewCardPage() {
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
-    const savedCards = JSON.parse(localStorage.getItem("dashboard_cards") || "[]");
-    const updatedCards = savedCards.filter((c: any) => c.id.toString() !== id && c.id !== Number(id));
-    localStorage.setItem("dashboard_cards", JSON.stringify(updatedCards));
-    toast.success("تم حذف البطاقة بنجاح");
-    setDeleteDialogOpen(false);
-    navigate("/dashboard/cards");
+  const confirmDelete = async () => {
+    if (!card) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await deleteCard(card.id);
+      toast.success("تم حذف البطاقة بنجاح");
+      setDeleteDialogOpen(false);
+      navigate("/dashboard/cards");
+    } catch (error: any) {
+      toast.error(error.message || "تعذر حذف البطاقة");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleGoogleWallet = async (cardCode?: string | null) => {
+    if (!cardCode) {
+      toast.error("لا يوجد رمز للبطاقة");
+      return;
+    }
+
+    try {
+      setWalletLoadingCode(cardCode);
+      const response = await generateGoogleWalletLink(cardCode);
+      const url = response.data.save_url || (response.data.jwt ? `https://pay.google.com/gp/v/save/${response.data.jwt}` : null);
+      if (!url) {
+        toast.error("تعذر استلام رابط Google Wallet");
+        return;
+      }
+      window.location.href = url;
+    } catch (error: any) {
+      toast.error(error.message || "تعذر إنشاء بطاقة Google Wallet");
+    } finally {
+      setWalletLoadingCode(null);
+    }
   };
 
   const handleDisable = () => {
@@ -144,7 +191,13 @@ export function ViewCardPage() {
         backgroundColor: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${card.bgOpacity || 0.9})`,
       };
 
-  const cardUrl = `${window.location.origin}/new_customer?shopId=demo&templateId=${card.id}`;
+  const cardUrl = card.registrationUrl || `${window.location.origin}/new-customer?card=${card.cardId}`;
+  const installedCount = customers.filter((customer) => customer.installed).length;
+  const googleInstalledCount = customers.filter((customer) => customer.googleInstalled).length;
+  const totalCustomers = customers.length;
+  const totalStampsEarned = customers.reduce((sum, customer) => sum + (customer.currentStamps ?? 0), 0);
+  const totalRewardsAvailable = customers.reduce((sum, customer) => sum + (customer.rewards ?? 0), 0);
+  const totalRewardsRedeemed = customers.reduce((sum, customer) => sum + (customer.totalRewards ?? 0), 0);
 
   return (
     <div className="w-full min-h-[100vh] py-3 relative">
@@ -235,25 +288,13 @@ export function ViewCardPage() {
                         className="rounded-lg w-[100px] h-[100px] flex place-content-center items-center shadow-md"
                         style={{ backgroundColor: "#ffffff" }}
                       >
-                        <svg
-                          className="w-[90px] h-[90px]"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth="1.5"
-                          style={{ stroke: card.bgColor || "#1E324A" }}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"
-                          ></path>
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"
-                          ></path>
-                        </svg>
+                        {card.qrTemplateUrl ? (
+                          <img
+                            src={card.qrTemplateUrl}
+                            alt="QR"
+                            className="w-[90px] h-[90px] object-contain"
+                          />
+                        ) : null}
                       </div>
                     </div>
 
@@ -265,7 +306,7 @@ export function ViewCardPage() {
                       <div className="flex-none w-14 text-left hidden md:block">
                         <div className="text-[7px] font-extralight opacity-80">الإصدار</div>
                         <div className="text-[9px] font-light">
-                          {format(card.issueDate, "dd MMM yyyy", { locale: ar })}
+                          {card.issueDate ? format(card.issueDate, "dd MMM yyyy", { locale: ar }) : "-"}
                         </div>
                       </div>
                       <div className="flex-none w-14 text-left">
@@ -292,10 +333,9 @@ export function ViewCardPage() {
         <div className="mt-5 flex-[.7] py-24 px-10 h-fit flex flex-col justify-center items-center gap-10 border-[1px] rounded-[6px] border-Gray font-[500] max-lg:flex-row max-lg:w-full max-md:gap-5 max-md:px-3 max-sm:flex-col max-sm:pb-3">
           <div>
             <div className="ant-qrcode" style={{ backgroundColor: "transparent", width: "160px", height: "160px" }}>
-              <svg height="160" width="160" viewBox="0 0 41 41" role="img">
-                <path fill="transparent" d="M0,0 h41v41H0z" shapeRendering="crispEdges"></path>
-                <path fill="rgba(0,0,0,0.88)" d="M0 0h7v1H0zM8 0h3v1H8zM12 0h4v1H12zM17 0h1v1H17zM20 0h2v1H20zM25 0h1v1H25zM28 0h5v1H28zM34,0 h7v1H34zM0 1h1v1H0zM6 1h1v1H6zM8 1h2v1H8zM11 1h1v1H11zM13 1h1v1H13zM15 1h2v1H15zM18 1h1v1H18zM20 1h1v1H20zM23 1h3v1H23zM34 1h1v1H34zM40,1 h1v1H40zM0 2h1v1H0zM2 2h3v1H2zM6 2h1v1H6zM10 2h2v1H10zM17 2h1v1H17zM19 2h1v1H19zM24 2h1v1H24zM31 2h2v1H31zM34 2h1v1H34zM36 2h3v1H36zM40,2 h1v1H40zM0 3h1v1H0zM2 3h3v1H2zM6 3h1v1H6zM8 3h7v1H8zM16 3h1v1H16zM21 3h1v1H21zM24 3h1v1H24zM26 3h3v1H26zM32 3h1v1H32zM34 3h1v1H34zM36 3h3v1H36zM40,3 h1v1H40zM0 4h1v1H0zM2 4h3v1H2zM6 4h1v1H6zM10 4h1v1H10zM12 4h1v1H12zM14 4h1v1H14zM17 4h1v1H17zM19 4h1v1H19zM21 4h2v1H21zM24 4h4v1H24zM29 4h3v1H29zM34 4h1v1H34zM36 4h3v1H36zM40,4 h1v1H40zM0 5h1v1H0zM6 5h1v1H6zM10 5h1v1H10zM12 5h2v1H12zM16 5h2v1H16zM19 5h3v1H19zM24 5h1v1H24zM29 5h1v1H29zM31 5h2v1H31zM34 5h1v1H34zM40,5 h1v1H40zM0 6h7v1H0zM8 6h1v1H8zM10 6h1v1H10zM12 6h1v1H12zM14 6h1v1H14zM16 6h1v1H16zM18 6h1v1H18zM20 6h1v1H20zM22 6h1v1H22zM24 6h1v1H24zM26 6h1v1H26zM28 6h1v1H28zM30 6h1v1H30zM32 6h1v1H32zM34,6 h7v1H34z"></path>
-              </svg>
+              {card.qrTemplateUrl ? (
+                <img src={card.qrTemplateUrl} alt="QR" className="w-[160px] h-[160px] object-contain" />
+              ) : null}
             </div>
             <input
               type="text"
@@ -321,10 +361,18 @@ export function ViewCardPage() {
         <div className="mt-5 flex-[2] grid grid-cols-2 gap-10 max-lg:grid-cols-4 max-lg:w-full max-lg:mt-8 max-md:grid-cols-3 max-sm:grid-cols-2 max-xsm:grid-cols-1">
           <div className="px-3 py-3 border-[1px] rounded-[6px] border-Gray font-[500] relative overflow-hidden">
             <div className="flex items-center justify-between">
-              <span className="text-[12px]">مثبتة</span>
+              <span className="text-[12px]">Apple Wallet</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[32px]">151</span>
+              <span className="text-[32px]">{installedCount}</span>
+            </div>
+          </div>
+          <div className="px-3 py-3 border-[1px] rounded-[6px] border-Gray font-[500] relative overflow-hidden">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px]">Google Wallet</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[32px]">{googleInstalledCount}</span>
             </div>
           </div>
           <div className="px-3 py-3 border-[1px] rounded-[6px] border-Gray font-[500] relative overflow-hidden">
@@ -332,7 +380,7 @@ export function ViewCardPage() {
               <span className="text-[12px]">إجمالي العملاء</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[32px]">167</span>
+              <span className="text-[32px]">{totalCustomers}</span>
             </div>
           </div>
           <div className="px-3 py-3 border-[1px] rounded-[6px] border-Gray font-[500] relative overflow-hidden">
@@ -340,7 +388,7 @@ export function ViewCardPage() {
               <span className="text-[12px]">الطوابع المكتسبة</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[32px]">205</span>
+              <span className="text-[32px]">{totalStampsEarned}</span>
             </div>
           </div>
           <div className="px-3 py-3 border-[1px] rounded-[6px] border-Gray font-[500] relative overflow-hidden">
@@ -348,7 +396,7 @@ export function ViewCardPage() {
               <span className="text-[12px]">المكافآت المكتسبة</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[32px]">9</span>
+              <span className="text-[32px]">{totalRewardsAvailable}</span>
             </div>
           </div>
           <div className="px-3 py-3 border-[1px] rounded-[6px] border-Gray font-[500] relative overflow-hidden">
@@ -356,7 +404,7 @@ export function ViewCardPage() {
               <span className="text-[12px]">المكافآت المستردة</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[32px]">9</span>
+              <span className="text-[32px]">{totalRewardsRedeemed}</span>
             </div>
           </div>
         </div>
@@ -451,9 +499,15 @@ export function ViewCardPage() {
                         </div>
                       </div>
                     </TableHead>
-                    <TableHead className="text-xs py-2 min-w-[100px]">
+                    <TableHead className="text-xs py-2 min-w-[120px]">
                       <div className={`flex items-center gap-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                        البطاقة مثبتة
+                        Apple Wallet
+                        <Filter className="h-4 w-4" />
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-xs py-2 min-w-[120px]">
+                      <div className={`flex items-center gap-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                        Google Wallet
                         <Filter className="h-4 w-4" />
                       </div>
                     </TableHead>
@@ -470,30 +524,64 @@ export function ViewCardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockCustomers.map((customer) => (
-                    <TableRow key={customer.id}>
-                      <TableCell className="text-xs py-2">
-                        <Checkbox />
+                  {customers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={12} className="py-6 text-center text-sm text-muted-foreground">
+                        {t("dashboardPages.cards.noCustomers") || "لا يوجد عملاء لهذه البطاقة بعد"}
                       </TableCell>
-                      <TableCell className="text-xs py-2 whitespace-nowrap">{customer.createdAt}</TableCell>
-                      <TableCell className="text-xs py-2 whitespace-nowrap">{customer.name}</TableCell>
-                      <TableCell className="text-xs py-2 whitespace-nowrap">{customer.phone}</TableCell>
-                      <TableCell className="text-xs py-2">
-                        <Badge variant="secondary" className="text-xs whitespace-nowrap">{customer.template}</Badge>
-                      </TableCell>
-                      <TableCell className="text-xs py-2 text-center">{customer.currentStamps}</TableCell>
-                      <TableCell className="text-xs py-2 text-center">{customer.totalStamps}</TableCell>
-                      <TableCell className="text-xs py-2 text-center">{customer.rewards}</TableCell>
-                      <TableCell className="text-xs py-2 text-center">{customer.totalRewards}</TableCell>
-                      <TableCell className="text-xs py-2">
-                        <Badge variant="default" className={`text-xs whitespace-nowrap ${customer.installed ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                          {customer.installed ? "نعم" : "لا"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs py-2 whitespace-nowrap">{customer.birthDate || "-"}</TableCell>
-                      <TableCell className="text-xs py-2 whitespace-nowrap">{customer.lastUpdate}</TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    customers.map((customer) => (
+                      <TableRow key={customer.id}>
+                        <TableCell className="text-xs py-2">
+                          <Checkbox />
+                        </TableCell>
+                        <TableCell className="text-xs py-2 whitespace-nowrap">{formatDateTime(customer.createdAt)}</TableCell>
+                        <TableCell className="text-xs py-2 whitespace-nowrap">{customer.name}</TableCell>
+                        <TableCell className="text-xs py-2 whitespace-nowrap">{customer.phone}</TableCell>
+                        <TableCell className="text-xs py-2">
+                          <Badge variant="secondary" className="text-xs whitespace-nowrap">{customer.template}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs py-2 text-center">{customer.currentStamps}</TableCell>
+                        <TableCell className="text-xs py-2 text-center">{customer.totalStamps}</TableCell>
+                        <TableCell className="text-xs py-2 text-center">{customer.rewards}</TableCell>
+                        <TableCell className="text-xs py-2 text-center">{customer.totalRewards}</TableCell>
+                        <TableCell className="text-xs py-2">
+                          <div className="flex flex-col gap-2">
+                            <Badge variant="default" className={`text-xs whitespace-nowrap ${customer.installed ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                              {customer.installed ? "مثبت" : "غير مثبت"}
+                            </Badge>
+                            {customer.pkpassUrl ? (
+                              <Button asChild variant="outline" size="sm" className="text-xs">
+                                <a href={customer.pkpassUrl} target="_blank" rel="noreferrer">
+                                  تنزيل Apple
+                                </a>
+                              </Button>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs py-2">
+                          <div className="flex flex-col gap-2">
+                            <Badge variant="default" className={`text-xs whitespace-nowrap ${customer.googleInstalled ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                              {customer.googleInstalled ? "مثبت" : "غير مثبت"}
+                            </Badge>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="text-xs"
+                              onClick={() => handleGoogleWallet(customer.cardCode)}
+                              disabled={walletLoadingCode === customer.cardCode}
+                            >
+                              {walletLoadingCode === customer.cardCode ? "..." : "إضافة Google"}
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs py-2 whitespace-nowrap">{customer.birthDate || "-"}</TableCell>
+                        <TableCell className="text-xs py-2 whitespace-nowrap">{formatDateTime(customer.lastUpdate)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -502,7 +590,7 @@ export function ViewCardPage() {
           {/* Pagination */}
           <div className={`flex items-center justify-between mt-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
             <div className={`text-sm text-muted-foreground ${isRTL ? 'text-right' : 'text-left'}`}>
-              Shown 50 From 167 Customers
+              {`Shown ${customers.length} From ${customers.length} Customers`}
             </div>
             <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
               <Button variant="outline" size="sm" disabled>
@@ -516,7 +604,7 @@ export function ViewCardPage() {
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <div className={`text-sm text-muted-foreground ${isRTL ? 'mr-4' : 'ml-4'}`}>
-                50 / page
+                {`${customers.length} / page`}
               </div>
             </div>
           </div>
@@ -543,9 +631,10 @@ export function ViewCardPage() {
             <AlertDialogCancel>{t("dashboardPages.deleteConfirmation.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
+              disabled={isDeleting}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {t("dashboardPages.deleteConfirmation.confirm")}
+              {isDeleting ? (t("common.loading") || "جاري الحذف...") : t("dashboardPages.deleteConfirmation.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -553,4 +642,3 @@ export function ViewCardPage() {
     </div>
   );
 }
-

@@ -6,11 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Card;
 use App\Models\CardCustomer;
 use App\Models\Customer;
+use App\Services\QrCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class CardController extends Controller
 {
+    public function __construct(private readonly QrCodeService $qrCodeService)
+    {
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -40,6 +45,8 @@ class CardController extends Controller
                     'current_stage' => $card->current_stage,
                     'total_stages' => $card->total_stages,
                     'customers_count' => $card->card_customers_count,
+                    'registration_url' => $this->registrationUrl($card),
+                    'qr_template_url' => route('cards.qr.public', ['card_code' => $card->card_code]),
                 ];
             });
 
@@ -64,6 +71,7 @@ class CardController extends Controller
             'status' => ['nullable', 'string'],
             'current_stage' => ['nullable', 'integer', 'min:0'],
             'total_stages' => ['required', 'integer', 'min:1'],
+            'settings' => ['nullable', 'array'],
         ]);
 
         $businessId = $request->user()?->business_id ?? $request->input('business_id');
@@ -77,6 +85,7 @@ class CardController extends Controller
             'bg_opacity' => $validated['bg_opacity'] ?? 0.9,
             'text_color' => $validated['text_color'] ?? '#ffffff',
             'status' => $validated['status'] ?? 'active',
+            'settings' => $request->input('settings', []),
         ]);
 
         return response()->json(['data' => $card], 201);
@@ -87,7 +96,12 @@ class CardController extends Controller
      */
     public function show(string $id)
     {
-        $card = Card::with(['business', 'creator', 'cardCustomers.customer'])->findOrFail($id);
+        $card = Card::with([
+            'business',
+            'creator',
+            'cardCustomers.customer',
+            'cardCustomers.googleActivations',
+        ])->findOrFail($id);
 
         return response()->json([
             'data' => [
@@ -105,15 +119,31 @@ class CardController extends Controller
                 'status' => $card->status,
                 'current_stage' => $card->current_stage,
                 'total_stages' => $card->total_stages,
+                'settings' => $card->settings,
+                'registration_url' => $this->registrationUrl($card),
+                'qr_template_url' => route('cards.qr.public', ['card_code' => $card->card_code]),
                 'customers' => $card->cardCustomers->map(function ($record) {
                     return [
                         'id' => $record->id,
+                        'card_code' => $record->card_code,
                         'customer' => $record->customer?->only(['id', 'name', 'phone']),
                         'current_stage' => $record->current_stage,
                         'total_stages' => $record->total_stages,
+                        'stamps_count' => $record->stamps_count,
+                        'stamps_target' => $record->stamps_target,
                         'available_rewards' => $record->available_rewards,
                         'redeemed_rewards' => $record->redeemed_rewards,
                         'status' => $record->status,
+                        'issue_date' => optional($record->issue_date)->toIso8601String(),
+                        'expiry_date' => optional($record->expiry_date)->toIso8601String(),
+                        'apple_wallet_installed_at' => optional($record->apple_wallet_installed_at)->toIso8601String(),
+                        'google_wallet_installed_at' => optional($record->googleActivations->sortByDesc('activated_at')->first()?->activated_at)->toIso8601String(),
+                        'google_object_id' => $record->google_object_id,
+                        'google_class_id' => $record->google_class_id,
+                        'last_google_update' => optional($record->last_google_update)->toIso8601String(),
+                        'last_scanned_at' => optional($record->last_scanned_at)->toIso8601String(),
+                        'pkpass_url' => route('card-instances.pkpass', ['card_code' => $record->card_code]),
+                        'google_wallet_url' => route('card-instances.google-wallet', ['card_code' => $record->card_code]),
                     ];
                 }),
             ],
@@ -214,9 +244,13 @@ class CardController extends Controller
             'status' => ['nullable', 'string'],
             'current_stage' => ['nullable', 'integer', 'min:0'],
             'total_stages' => ['nullable', 'integer', 'min:1'],
+            'settings' => ['nullable', 'array'],
         ]);
 
         $card = Card::findOrFail($id);
+        if (! $request->exists('settings')) {
+            unset($validated['settings']);
+        }
         $card->update($validated);
 
         return response()->json(['data' => $card]);
@@ -231,5 +265,34 @@ class CardController extends Controller
         $card->delete();
 
         return response()->json(['message' => 'تم حذف البطاقة']);
+    }
+
+    public function qr(Card $card)
+    {
+        $url = $this->registrationUrl($card);
+        $binary = $this->qrCodeService->generate($url, $card->name);
+
+        return new \Illuminate\Http\Response($binary, 200, [
+            'Content-Type' => 'image/png',
+            'Content-Disposition' => 'inline; filename="card-' . $card->id . '-registration.png"',
+        ]);
+    }
+
+    public function qrByCode(string $card_code)
+    {
+        $card = Card::where('card_code', $card_code)->firstOrFail();
+        $url = $this->registrationUrl($card);
+        $binary = $this->qrCodeService->generate($url, $card->name);
+
+        return new \Illuminate\Http\Response($binary, 200, [
+            'Content-Type' => 'image/png',
+            'Content-Disposition' => 'inline; filename="card-' . $card->card_code . '-registration.png"',
+        ]);
+    }
+
+    private function registrationUrl(Card $card): string
+    {
+        $base = rtrim(config('app.url'), '/');
+        return $base . '/new-customer?card=' . $card->card_code;
     }
 }

@@ -21,6 +21,7 @@ import { AboutPage } from "./pages/AboutPage";
 import { SubscribePage } from "./pages/SubscribePage";
 import { SubscriptionSuccessPage } from "./pages/SubscriptionSuccessPage";
 import { SubscriptionFailurePage } from "./pages/SubscriptionFailurePage";
+import NewCustomerPage from "./pages/NewCustomerPage";
 import NotFound from "./pages/NotFound";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { RequireAuth } from "./components/auth/RequireAuth";
@@ -55,6 +56,7 @@ const AppContent = () => {
         <Route path="/subscribe/:planId" element={<SubscribePage />} />
         <Route path="/subscription/success" element={<SubscriptionSuccessPage />} />
         <Route path="/subscription/failure" element={<SubscriptionFailurePage />} />
+        <Route path="/new-customer" element={<NewCustomerPage />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import { fetchCardTemplates } from "@/lib/api";
+import { toast } from "sonner";
 
 // تعريف واجهة القالب
 interface Template {
@@ -37,7 +39,7 @@ interface Template {
 }
 
 // 20 قالب متنوع
-const templates: Template[] = [
+const defaultTemplates: Template[] = [
   {
     id: 1,
     name: "مقهى الورد",
@@ -663,6 +665,33 @@ const templates: Template[] = [
 export function TemplatesPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [templates, setTemplates] = useState<Template[]>(defaultTemplates);
+  const [isLoading, setIsLoading] = useState(true);
+  const [usingFallback, setUsingFallback] = useState(true);
+
+  useEffect(() => {
+    const loadTemplates = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetchCardTemplates();
+        if (response.data.length) {
+          setTemplates(response.data as Template[]);
+          setUsingFallback(false);
+        } else {
+          setTemplates(defaultTemplates);
+          setUsingFallback(true);
+        }
+      } catch (error: any) {
+        toast.error(error.message || "تعذر تحميل القوالب، تم عرض القوالب الافتراضية.");
+        setTemplates(defaultTemplates);
+        setUsingFallback(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadTemplates();
+  }, []);
 
   // دالة لتحويل hex إلى rgb
   const hexToRgb = (hex: string) => {
@@ -690,6 +719,14 @@ export function TemplatesPage() {
       <h1 className="mb-12 mt-4 text-[24px] font-[500] flex items-center gap-1">
         {t("dashboardPages.cards.templates") || "قوالب جاهزة"}
       </h1>
+      {isLoading && (
+        <p className="text-sm text-muted-foreground mb-4">{t("common.loading") || "جاري تحميل القوالب..."}</p>
+      )}
+      {usingFallback && !isLoading && (
+        <p className="text-sm text-muted-foreground mb-4">
+          {t("dashboardPages.cards.fallbackMessage") || "نعرض حالياً القوالب التجريبية حتى تتوفر بياناتك."}
+        </p>
+      )}
       <div className="ml-5 flex items-center flex-start flex-wrap max-sm:flex-col gap-x-4 gap-y-10">
         {templates.map((template) => {
           const rgb = hexToRgb(template.bgColor);
@@ -813,4 +850,3 @@ export function TemplatesPage() {
     </div>
   );
 }
-

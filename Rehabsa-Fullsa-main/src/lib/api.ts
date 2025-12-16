@@ -1,6 +1,6 @@
 import axios, { AxiosError, type Method } from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 if (!API_BASE_URL) {
   throw new Error("VITE_API_BASE_URL is not set. Please add it to your .env file.");
@@ -102,8 +102,175 @@ export async function logoutApi() {
   }
 }
 
+export interface CardTemplateRecord {
+  id: number;
+  name: string;
+  title?: string | null;
+  description?: string | null;
+  bgColor?: string | null;
+  bgOpacity?: number | null;
+  bgImage?: string | null;
+  textColor?: string | null;
+  cardType?: number;
+  totalStages: number;
+  activeStampType?: string | null;
+  inactiveStampType?: string | null;
+  cardDescription?: string | null;
+  howToEarnStamp?: string | null;
+  companyName?: string | null;
+  termsOfUse?: string | null;
+  sourceCompanyName?: string | null;
+  sourceEmail?: string | null;
+  phoneNumber?: string | null;
+  countryCode?: string | null;
+  colors?: Record<string, string> | null;
+}
+
+export interface CardRecord {
+  id: number;
+  name: string;
+  title?: string | null;
+  description?: string | null;
+  card_code: string;
+  issue_date?: string | null;
+  expiry_date?: string | null;
+  bg_color?: string | null;
+  bg_opacity?: number | null;
+  bg_image?: string | null;
+  text_color?: string | null;
+  status?: string | null;
+  current_stage?: number | null;
+  total_stages: number;
+  customers_count?: number | null;
+  settings?: Record<string, unknown> | null;
+  registration_url?: string | null;
+  qr_template_url?: string | null;
+}
+
+export interface CardPayload {
+  name: string;
+  title?: string | null;
+  description?: string | null;
+  issue_date?: string | null;
+  expiry_date?: string | null;
+  bg_color?: string | null;
+  bg_opacity?: number | null;
+  bg_image?: string | null;
+  text_color?: string | null;
+  status?: string | null;
+  total_stages: number;
+  current_stage?: number | null;
+  settings?: Record<string, unknown> | null;
+}
+
+export interface CardActivationRecord {
+  id: number;
+  channel: string;
+  device_type?: string | null;
+  activated_at?: string | null;
+}
+
+export interface IssuedCard {
+  id: number;
+  card_code: string;
+  qr_payload: string;
+  issue_date?: string | null;
+  expiry_date?: string | null;
+  stamps_count: number;
+  stamps_target: number;
+  status: string;
+  apple_wallet_installed_at?: string | null;
+  last_scanned_at?: string | null;
+  customer?: {
+    id: number;
+    name: string;
+    phone: string;
+    email?: string | null;
+  } | null;
+  template?: {
+    id?: number;
+    name?: string;
+    title?: string;
+    bg_color?: string;
+    text_color?: string;
+    business?: string | null;
+  } | null;
+  qr_url: string;
+  pkpass_url: string;
+  google_wallet?: {
+    url: string;
+    installed_at?: string | null;
+    activation_count?: number;
+    object_id?: string | null;
+    class_id?: string | null;
+    last_update?: string | null;
+  } | null;
+  activations: CardActivationRecord[];
+}
+
+export interface IssueCardInstancePayload {
+  card_template_id: number;
+  customer_id?: number;
+  customer?: {
+    name: string;
+    phone: string;
+    email?: string | null;
+  };
+  issue_date?: string | null;
+  expiry_date?: string | null;
+  initial_stamps?: number;
+  notes?: string | null;
+}
+
 export async function fetchCards() {
-  return apiFetch<{ data: any[] }>("/cards");
+  return apiFetch<{ data: CardRecord[] }>("/cards");
+}
+
+export async function createCard(payload: CardPayload) {
+  return apiFetch<{ data: CardRecord }>("/cards", {
+    method: "POST",
+    data: payload,
+  });
+}
+
+export async function fetchCard(id: string | number) {
+  return apiFetch<{ data: CardRecord }>(`/cards/${id}`);
+}
+
+export async function updateCard(id: string | number, payload: CardPayload) {
+  return apiFetch<{ data: CardRecord }>(`/cards/${id}`, {
+    method: "PUT",
+    data: payload,
+  });
+}
+
+export async function deleteCard(id: string | number) {
+  return apiFetch<{ message: string }>(`/cards/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function fetchCardTemplates() {
+  return apiFetch<{ data: CardTemplateRecord[] }>("/card-templates");
+}
+
+export async function fetchCardInstances(params?: { q?: string; page?: number }) {
+  return apiFetch<{ data: IssuedCard[]; meta?: any }>("/card-instances", { params });
+}
+
+export async function fetchCardInstanceById(id: string | number) {
+  return apiFetch<{ data: IssuedCard }>(`/card-instances/${id}`);
+}
+
+export async function fetchCardInstanceByCode(cardCode: string) {
+  return apiFetch<{ data: IssuedCard }>(`/card-instances/code/${cardCode}`);
+}
+
+export async function issueCardInstance(payload: IssueCardInstancePayload) {
+  return apiFetch<{ data: IssuedCard }>("/card-instances", {
+    method: "POST",
+    data: payload,
+  });
 }
 
 export async function fetchCustomers() {
@@ -135,11 +302,21 @@ export interface CustomerDetails {
   last_visit_at?: string | null;
   metadata?: Record<string, unknown> | null;
   cards: Array<{
-    card?: { id: number; name: string; card_code: string } | null;
+    card?: { id?: number; name?: string } | null;
+    card_code?: string;
     current_stage: number;
     total_stages: number;
+    stamps_count?: number;
+    stamps_target?: number;
     available_rewards: number;
     status?: string | null;
+    qr_url?: string;
+    pkpass_url?: string;
+    google_wallet_url?: string;
+    google_wallet_installed_at?: string | null;
+    google_object_id?: string | null;
+    google_class_id?: string | null;
+    last_google_update?: string | null;
   }>;
   recent_transactions: Array<{
     id: number;
@@ -162,6 +339,66 @@ export interface CustomerPayload {
 
 export async function fetchCustomer(id: string | number) {
   return apiFetch<{ data: CustomerDetails }>(`/customers/${id}`);
+}
+
+export interface GoogleWalletLink {
+  save_url: string;
+  jwt: string;
+  class_id: string;
+  object_id: string;
+}
+
+export async function generateGoogleWalletLink(cardCode: string) {
+  return apiFetch<{ data: GoogleWalletLink }>(`/card-instances/code/${cardCode}/google-wallet`);
+}
+
+export interface GoogleWalletRefresh {
+  object_id: string;
+  last_google_update?: string | null;
+}
+
+export async function refreshGoogleWallet(cardCode: string) {
+  return apiFetch<{ data: GoogleWalletRefresh }>(`/card-instances/code/${cardCode}/google-wallet/refresh`, {
+    method: "POST",
+  });
+}
+
+export interface PublicCardInfo {
+  id: number;
+  card_code: string;
+  name: string;
+  title?: string | null;
+  description?: string | null;
+  total_stages?: number | null;
+  bg_color?: string | null;
+  text_color?: string | null;
+  form_fields?: Array<{ id?: string; type?: string; name?: string; required?: boolean }>;
+  registration_url?: string;
+}
+
+export interface PublicRegistrationResult {
+  card_instance: {
+    id: number;
+    card_code: string;
+    qr_payload: string;
+    qr_url: string;
+    pkpass_url: string;
+    google_wallet_url?: string | null;
+    google_object_id?: string | null;
+    google_class_id?: string | null;
+  };
+  registration_url?: string;
+}
+
+export async function fetchPublicCard(cardCode: string) {
+  return apiFetch<{ data: PublicCardInfo }>(`/public/cards/${cardCode}`);
+}
+
+export async function registerPublicCard(cardCode: string, payload: { name: string; phone: string; email?: string | null }) {
+  return apiFetch<{ data: PublicRegistrationResult }>(`/public/cards/${cardCode}/register`, {
+    method: "POST",
+    data: payload,
+  });
 }
 
 export async function createCustomer(payload: CustomerPayload) {
