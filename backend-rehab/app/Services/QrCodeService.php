@@ -2,36 +2,34 @@
 
 namespace App\Services;
 
+use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Color\Color;
 use Endroid\QrCode\Encoding\Encoding;
-use Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelHigh;
+use Endroid\QrCode\ErrorCorrectionLevel;
 use Endroid\QrCode\Label\LabelAlignment;
-use Endroid\QrCode\Label\Label;
-use Endroid\QrCode\QrCode;
+use Endroid\QrCode\RoundBlockSizeMode;
 use Endroid\QrCode\Writer\PngWriter;
 
 class QrCodeService
 {
     public function generate(string $payload, ?string $labelText = null): string
     {
-        $qrCode = QrCode::create($payload)
-            ->setEncoding(new Encoding('UTF-8'))
-            ->setErrorCorrectionLevel(new ErrorCorrectionLevelHigh())
-            ->setSize(600)
-            ->setMargin(20)
-            ->setForegroundColor(new Color(0, 0, 0))
-            ->setBackgroundColor(new Color(255, 255, 255));
+        $builder = new Builder(
+            writer: new PngWriter(),
+            data: $payload,
+            encoding: new Encoding('UTF-8'),
+            errorCorrectionLevel: ErrorCorrectionLevel::High,
+            size: 600,
+            margin: 20,
+            roundBlockSizeMode: RoundBlockSizeMode::Margin,
+            foregroundColor: new Color(0, 0, 0),
+            backgroundColor: new Color(255, 255, 255),
+            labelText: $labelText ?? '',
+            labelAlignment: LabelAlignment::Center,
+            labelTextColor: new Color(0, 0, 0)
+        );
 
-        $writer = new PngWriter();
-
-        $label = null;
-        if ($labelText) {
-            $label = Label::create($labelText)
-                ->setTextColor(new Color(0, 0, 0))
-                ->setAlignment(new LabelAlignment(LabelAlignment::CENTER));
-        }
-
-        $result = $writer->write($qrCode, null, $label);
+        $result = $builder->build();
 
         return $result->getString();
     }

@@ -1760,3 +1760,4 @@ export function CreateCardPage() {
     </div>
   );
 }
+

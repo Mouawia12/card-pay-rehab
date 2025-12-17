@@ -63,35 +63,65 @@ class PublicCardRegistrationController extends Controller
             ]
         );
 
-        $cardCodeInstance = CardCodeGenerator::make();
-        $qrPayload = sprintf('%s|%s|%s', $customer->name, $card->business?->name ?? 'Merchant', $cardCodeInstance);
+        $issued = CardCustomer::where('card_id', $card->id)
+            ->where('customer_id', $customer->id)
+            ->first();
 
-        $issued = CardCustomer::create([
-            'card_id' => $card->id,
-            'customer_id' => $customer->id,
-            'card_code' => $cardCodeInstance,
-            'qr_payload' => $qrPayload,
-            'issue_date' => now(),
-            'expiry_date' => null,
-            'total_stages' => $card->total_stages,
-            'stamps_target' => $card->total_stages,
-            'current_stage' => 0,
-            'stamps_count' => 0,
-            'status' => 'active',
-            'metadata' => ['registration_source' => 'public_qr'],
-        ]);
+        $created = false;
+        if ($issued) {
+            $cardCodeInstance = $issued->card_code ?: CardCodeGenerator::make();
+            $qrPayload = $issued->qr_payload ?: sprintf(
+                '%s|%s|%s',
+                $customer->name,
+                $card->business?->name ?? 'Merchant',
+                $cardCodeInstance
+            );
+
+            $issued->fill([
+                'card_code' => $cardCodeInstance,
+                'qr_payload' => $qrPayload,
+                'issue_date' => $issued->issue_date ?? now(),
+                'expiry_date' => $issued->expiry_date,
+                'total_stages' => $issued->total_stages ?: $card->total_stages,
+                'stamps_target' => $issued->stamps_target ?: $card->total_stages,
+                'status' => $issued->status ?: 'active',
+                'metadata' => array_merge((array) $issued->metadata, ['registration_source' => 'public_qr']),
+            ]);
+            $issued->save();
+        } else {
+            $created = true;
+            $cardCodeInstance = CardCodeGenerator::make();
+            $qrPayload = sprintf('%s|%s|%s', $customer->name, $card->business?->name ?? 'Merchant', $cardCodeInstance);
+
+            $issued = CardCustomer::create([
+                'card_id' => $card->id,
+                'customer_id' => $customer->id,
+                'card_code' => $cardCodeInstance,
+                'qr_payload' => $qrPayload,
+                'issue_date' => now(),
+                'expiry_date' => null,
+                'total_stages' => $card->total_stages,
+                'stamps_target' => $card->total_stages,
+                'current_stage' => 0,
+                'stamps_count' => 0,
+                'status' => 'active',
+                'metadata' => ['registration_source' => 'public_qr'],
+            ]);
+        }
 
         $google = null;
-        try {
-            $google = $this->googleWalletService->generate($issued);
-            $issued->update([
-                'google_object_id' => $google['object_id'] ?? null,
-                'google_class_id' => $google['class_id'] ?? null,
-                'last_google_update' => now(),
-            ]);
-        } catch (\Throwable $e) {
-            // Allow registration even if Google Wallet is not configured
-            report($e);
+        if (! $issued->google_object_id) {
+            try {
+                $google = $this->googleWalletService->generate($issued);
+                $issued->update([
+                    'google_object_id' => $google['object_id'] ?? null,
+                    'google_class_id' => $google['class_id'] ?? null,
+                    'last_google_update' => now(),
+                ]);
+            } catch (\Throwable $e) {
+                // Allow registration even if Google Wallet is not configured
+                report($e);
+            }
         }
 
         // Apple pass is generated lazily via download route; expose link
@@ -111,7 +141,7 @@ class PublicCardRegistrationController extends Controller
                 ],
                 'registration_url' => $this->registrationUrl($card),
             ],
-        ], 201);
+        ], $created ? 201 : 200);
     }
 
     private function registrationUrl(Card $card): string
