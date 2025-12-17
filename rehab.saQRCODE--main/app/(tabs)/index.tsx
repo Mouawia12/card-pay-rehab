@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Button } from '@/components/ui/Button';
@@ -25,6 +26,9 @@ export default function ScannerScreen() {
   const { addRecord } = useStorage();
   const { startScanningRef } = useScanner();
   const { t } = useTranslation();
+  const isWeb = Platform.OS === 'web';
+  const webVideoRef = useRef<any>(null);
+  const webScannerRef = useRef<any>(null);
 
   // Dynamic text styles based on content
   const titleStyle = getTextStyle(t('scanner.title'));
@@ -51,7 +55,7 @@ export default function ScannerScreen() {
   }, [permission, t]);
 
   const startScanning = useCallback(async () => {
-    if (!permission?.granted) {
+    if (!isWeb && !permission?.granted) {
       const { granted } = await requestPermission();
       if (!granted) {
         Dialog.show({
@@ -65,7 +69,7 @@ export default function ScannerScreen() {
     }
     setIsScanning(true);
     setScanned(false);
-  }, [permission, requestPermission, t]);
+  }, [isWeb, permission, requestPermission, t]);
 
   // Register startScanning function in the context
   useEffect(() => {
@@ -107,17 +111,61 @@ export default function ScannerScreen() {
   const stopScanning = () => {
     setIsScanning(false);
     setScanned(false);
+    if (isWeb) {
+      webScannerRef.current?.reset();
+      webScannerRef.current = null;
+    }
   };
 
-  const handleBarCodeScanned = async ({ data }: { data: string }) => {
+  const parseScannedData = (data: string) => {
+    const raw = data.trim();
+    if (!raw) {
+      return null;
+    }
+
+    if (raw.includes('|')) {
+      const parts = raw.split('|');
+      return {
+        cardId: parts[2] || raw.substring(0, 20),
+        name: parts[0] || t('records.unknown'),
+        manager: parts[1] || 'QR Manager',
+      };
+    }
+
+    if ((raw.startsWith('http://') || raw.startsWith('https://')) && typeof URL !== 'undefined') {
+      try {
+        const url = new URL(raw);
+        const cardParam = url.searchParams.get('card');
+        if (cardParam) {
+          return {
+            cardId: cardParam,
+            name: t('records.unknown'),
+            manager: 'QR Manager',
+          };
+        }
+      } catch {
+        // ignore parsing errors and fallback to raw
+      }
+    }
+
+    return {
+      cardId: raw.substring(0, 40),
+      name: t('records.unknown'),
+      manager: 'QR Manager',
+    };
+  };
+
+  const handleBarCodeScanned = useCallback(async ({ data }: { data: string }) => {
     if (scanned) return;
     
     setScanned(true);
     setIsScanning(false);
 
     try {
-      // Parse QR code data - assuming format: name|manager|cardId
-      const parts = data.split('|');
+      const parsed = parseScannedData(data);
+      if (!parsed?.cardId) {
+        throw new Error('invalid_qr');
+      }
       const today = new Date();
       // Store date as ISO string for easy parsing
       const dateString = today.toISOString();
@@ -125,9 +173,9 @@ export default function ScannerScreen() {
       await addRecord({
         date: dateString,
         title: '1 اختام أصيفت',
-        cardId: parts[2] || data.substring(0, 20),
-        name: parts[0] || t('records.unknown'),
-        manager: parts[1] || 'Hussain Ali',
+        cardId: parsed.cardId,
+        name: parsed.name,
+        manager: parsed.manager,
       });
 
       Toast.show({
@@ -142,7 +190,51 @@ export default function ScannerScreen() {
         textBody: t('scanner.scanError'),
       });
     }
-  };
+  }, [addRecord, scanned, t]);
+
+  useEffect(() => {
+    if (!isWeb) return;
+    if (!isScanning) return;
+    if (!webVideoRef.current) return;
+
+    let cancelled = false;
+    let reader: any = null;
+
+    const startWebScanner = async () => {
+      try {
+        const { BrowserMultiFormatReader } = await import('@zxing/browser');
+        if (cancelled) return;
+        reader = new BrowserMultiFormatReader();
+        webScannerRef.current = reader;
+
+        reader.decodeFromVideoDevice(undefined, webVideoRef.current, (result: any) => {
+          if (result) {
+            handleBarCodeScanned({ data: result.getText() });
+            reader.reset();
+          }
+        }).catch(() => {
+          Toast.show({
+            type: ALERT_TYPE.DANGER,
+            title: t('common.error'),
+            textBody: t('scanner.scanError'),
+          });
+        });
+      } catch {
+        Toast.show({
+          type: ALERT_TYPE.DANGER,
+          title: t('common.error'),
+          textBody: t('scanner.scanError'),
+        });
+      }
+    };
+
+    startWebScanner();
+
+    return () => {
+      cancelled = true;
+      reader?.reset();
+    };
+  }, [handleBarCodeScanned, isScanning, isWeb, t]);
 
   if (permission === null) {
     return (
@@ -193,6 +285,44 @@ export default function ScannerScreen() {
               )}
             </View>
           </Card>
+        ) : isWeb ? (
+          <View style={styles.cameraWrapper}>
+            <View style={styles.webCamera}>
+              <video
+                ref={webVideoRef}
+                style={styles.webVideo as any}
+                muted
+                playsInline
+              />
+              {/* Scanning Frame */}
+              <View style={styles.overlay}>
+                <View style={styles.frame}>
+                  {/* Corner borders */}
+                  <View style={styles.corner} />
+                  <View style={[styles.corner, styles.topRight]} />
+                  <View style={[styles.corner, styles.bottomLeft]} />
+                  <View style={[styles.corner, styles.bottomRight]} />
+                </View>
+              </View>
+
+              {/* Close button */}
+              <TouchableOpacity
+                onPress={stopScanning}
+                style={styles.closeButton}
+              >
+                <MaterialCommunityIcons
+                  name="close"
+                  size={24}
+                  color={Colors.light.destructiveForeground}
+                />
+              </TouchableOpacity>
+
+              {/* Instructions overlay */}
+              <View style={styles.instructionsOverlay}>
+                <Text style={[styles.instructionsText, instructionsTextStyle]}>{t('scanner.pointCamera')}</Text>
+              </View>
+            </View>
+          </View>
         ) : (
           <View style={styles.cameraWrapper}>
             <CameraView
@@ -322,14 +452,30 @@ const styles = StyleSheet.create({
   cameraWrapper: {
     borderRadius: BorderRadius.xl,
     overflow: 'hidden',
+    position: 'relative',
     ...Shadows.lg,
+  },
+  webCamera: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: '#000',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  webVideo: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    objectFit: 'cover',
   },
   camera: {
     width: '100%',
     aspectRatio: 1,
   },
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
   },
