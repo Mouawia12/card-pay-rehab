@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Card;
 use App\Models\CardCustomer;
 use App\Models\Customer;
+use App\Services\CardCodeGenerator;
 use App\Services\QrCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -202,12 +203,21 @@ class CardController extends Controller
             ]
         );
 
+        $cardCode = $assignment->card_code ?: CardCodeGenerator::make();
         $qrPayload = sprintf(
             '%s|%s|%s',
             $customer->name,
             $request->user()?->name ?? $card->creator?->name ?? 'Merchant',
-            $card->card_code
+            $cardCode
         );
+
+        $assignment->fill([
+            'card_code' => $cardCode,
+            'qr_payload' => $qrPayload,
+            'stamps_target' => $assignment->stamps_target ?: $card->total_stages,
+            'status' => $assignment->status ?: 'active',
+        ]);
+        $assignment->save();
 
         return response()->json([
             'data' => [
@@ -220,6 +230,10 @@ class CardController extends Controller
                     'current_stage' => $assignment->current_stage,
                     'total_stages' => $assignment->total_stages,
                     'available_rewards' => $assignment->available_rewards,
+                    'card_code' => $assignment->card_code,
+                    'qr_url' => route('card-instances.qr', ['card_code' => $assignment->card_code]),
+                    'pkpass_url' => route('card-instances.pkpass', ['card_code' => $assignment->card_code]),
+                    'google_wallet_url' => route('card-instances.google-wallet', ['card_code' => $assignment->card_code]),
                 ],
                 'qr_payload' => $qrPayload,
             ],
