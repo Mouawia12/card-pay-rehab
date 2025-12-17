@@ -23,6 +23,7 @@ export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const [scanMessage, setScanMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const { addRecord } = useStorage();
   const { startScanningRef } = useScanner();
   const { t } = useTranslation();
@@ -69,6 +70,7 @@ export default function ScannerScreen() {
     }
     setIsScanning(true);
     setScanned(false);
+    setScanMessage(null);
   }, [isWeb, permission, requestPermission, t]);
 
   // Register startScanning function in the context
@@ -178,16 +180,25 @@ export default function ScannerScreen() {
         manager: parsed.manager,
       });
 
+      setScanMessage({
+        type: 'success',
+        text: t('scanner.scanSuccessMessage') || 'تمت إضافة النقطة بنجاح.',
+      });
       Toast.show({
         type: ALERT_TYPE.SUCCESS,
         title: t('scanner.scanSuccess'),
         textBody: t('scanner.scanSuccessMessage'),
       });
     } catch (error) {
+      const message = error instanceof Error ? error.message : t('scanner.scanError');
+      setScanMessage({
+        type: 'error',
+        text: message || t('scanner.scanError'),
+      });
       Toast.show({
         type: ALERT_TYPE.DANGER,
         title: t('common.error'),
-        textBody: t('scanner.scanError'),
+        textBody: message || t('scanner.scanError'),
       });
     }
   }, [addRecord, scanned, t]);
@@ -254,6 +265,16 @@ export default function ScannerScreen() {
 
       {/* Scanner Area */}
       <View style={styles.scannerContainer}>
+        {scanMessage ? (
+          <View
+            style={[
+              styles.scanMessage,
+              scanMessage.type === 'success' ? styles.scanMessageSuccess : styles.scanMessageError,
+            ]}
+          >
+            <Text style={styles.scanMessageText}>{scanMessage.text}</Text>
+          </View>
+        ) : null}
         {!isScanning ? (
           <Card style={styles.scannerCard}>
             <View style={styles.emptyState}>
@@ -550,6 +571,23 @@ const styles = StyleSheet.create({
   infoSection: {
     paddingHorizontal: 16,
     marginTop: 24,
+  },
+  scanMessage: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: BorderRadius.md,
+    marginBottom: 12,
+  },
+  scanMessageSuccess: {
+    backgroundColor: 'rgba(34,197,94,0.12)',
+  },
+  scanMessageError: {
+    backgroundColor: 'rgba(239,68,68,0.12)',
+  },
+  scanMessageText: {
+    fontSize: FontSizes.sm,
+    color: Colors.light.foreground,
+    textAlign: 'center',
   },
   infoCard: {
     padding: 16,

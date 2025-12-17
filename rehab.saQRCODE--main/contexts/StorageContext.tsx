@@ -123,8 +123,16 @@ export const StorageProvider: React.FC<StorageProviderProps> = ({ children }) =>
       }),
     });
 
+    let payload: any = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+
     if (!response.ok) {
-      throw new Error(`Failed to add record (${response.status})`);
+      const message = payload?.message || `Failed to add record (${response.status})`;
+      throw new Error(message);
     }
 
     await loadRecords();
