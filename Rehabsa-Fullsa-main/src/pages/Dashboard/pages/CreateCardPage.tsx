@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import iosFrame from "@/assets/ios.svg";
 
 interface FormField {
   id: string;
@@ -1460,7 +1461,7 @@ export function CreateCardPage() {
               </div>
               {activeTab === "المعلومات" ? (
                 <div className="overflow-hidden relative w-[300px] max-xsm:w-[200px]" dir="ltr">
-                  <img alt="Active screen" src="/dashboard/ios.svg" className="w-full h-full object-contain" />
+                  <img alt="Active screen" src={iosFrame} className="w-full h-full object-contain" />
                   
                   {/* Main Card - White */}
                   <div
@@ -1567,7 +1568,7 @@ export function CreateCardPage() {
                 </div>
               ) : (
                 <div className="overflow-hidden relative w-[245px] max-xsm:w-[200px]">
-                  <img alt="Active screen" src="/dashboard/ios.svg" className="w-full h-full object-contain" />
+                  <img alt="Active screen" src={iosFrame} className="w-full h-full object-contain" />
                   {/* Card Preview */}
                   <div
                     className="w-[82%] h-[65%] absolute top-[18%] right-[50%] translate-x-[50%] rounded-[8px] shadow-[0px_2px_8px_rgba(0,0,0,0.15)] overflow-hidden bg-fixed bg-center bg-cover bg-no-repeat"
@@ -1760,4 +1761,3 @@ export function CreateCardPage() {
     </div>
   );
 }
-

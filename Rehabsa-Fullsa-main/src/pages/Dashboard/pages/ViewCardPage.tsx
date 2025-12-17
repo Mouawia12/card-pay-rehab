@@ -22,6 +22,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
 import { fetchCard, deleteCard, generateGoogleWalletLink } from "@/lib/api";
+import iosFrame from "@/assets/ios.svg";
 
 export function ViewCardPage() {
   const { id } = useParams<{ id: string }>();
@@ -229,7 +230,7 @@ export function ViewCardPage() {
                 <span className="text-[12px] font-[600]">{card.status || "نشط"}</span>
               </div>
               <div className="overflow-hidden relative w-[245px] max-xsm:w-[200px]">
-                <img alt="Active screen" src="/dashboard/ios.svg" className="w-full h-full object-contain" />
+                <img alt="Active screen" src={iosFrame} className="w-full h-full object-contain" />
                 <div
                   className="w-[82%] h-[65%] absolute top-[18%] right-[50%] translate-x-[50%] rounded-[8px] shadow-[0px_2px_8px_rgba(0,0,0,0.15)] overflow-hidden bg-fixed bg-center bg-cover bg-no-repeat"
                   style={{
@@ -642,4 +643,3 @@ export function ViewCardPage() {
     </div>
   );
 }
-

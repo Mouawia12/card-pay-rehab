@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { fetchCardTemplates } from "@/lib/api";
 import { toast } from "sonner";
+import iosFrame from "@/assets/ios.svg";
 
 // تعريف واجهة القالب
 interface Template {
@@ -743,7 +744,7 @@ export function TemplatesPage() {
               <div className="px-4 flex-[1] flex items-center justify-center max-lg:flex-col max-md:p-0 max-md:mt-0 max-md:m-auto" dir="ltr">
                 <div className="relative flex flex-col items-center">
                   <div className="overflow-hidden relative w-[245px] max-xsm:w-[200px]">
-                    <img alt="Template preview" src="/dashboard/ios.svg" className="w-full h-full object-contain" />
+                    <img alt="Template preview" src={iosFrame} className="w-full h-full object-contain" />
                     {/* Card inside iOS frame */}
                     <div
                       className="w-[82%] h-[65%] absolute top-[18%] right-[50%] translate-x-[50%] rounded-[8px] shadow-[0px_2px_8px_rgba(0,0,0,0.15)] overflow-hidden bg-fixed bg-center bg-cover bg-no-repeat"
@@ -850,4 +851,3 @@ export function TemplatesPage() {
     </div>
   );
 }
-
