@@ -84,6 +84,7 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('card-instances', CardInstanceController::class)
             ->only(['index', 'store', 'show'])
             ->parameters(['card-instances' => 'cardInstance']);
+        Route::post('/card-instances/{cardInstance}/google-wallet/reissue', [CardInstanceController::class, 'reissueGoogleWallet'])->name('card-instances.google-wallet.reissue');
         Route::apiResource('customers', CustomerController::class);
         Route::apiResource('products', ProductController::class);
         Route::apiResource('transactions', TransactionController::class);

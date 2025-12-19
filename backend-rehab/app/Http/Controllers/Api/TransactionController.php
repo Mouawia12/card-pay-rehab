@@ -75,6 +75,7 @@ class TransactionController extends Controller
         }
 
         $issuedCard = null;
+        $googleWalletStatus = null;
 
         if ($request->filled('card_code')) {
             $issuedCard = CardCustomer::with(['card', 'customer'])->where('card_code', $request->string('card_code'))->first();
@@ -130,9 +131,14 @@ class TransactionController extends Controller
             $issuedCard->last_scanned_at = now();
             $issuedCard->save();
 
+            $googleWalletStatus = [
+                'status' => 'skipped',
+                'message' => 'لا يوجد Google Wallet مفعّل لهذه البطاقة',
+            ];
+
             if ($issuedCard->google_object_id) {
                 try {
-                    $this->googleWalletService->updateLoyaltyObject($issuedCard->google_object_id, [
+                    $updated = $this->googleWalletService->updateLoyaltyObject($issuedCard->google_object_id, [
                         'loyaltyPoints' => [
                             'label' => 'Points',
                             'balance' => ['string' => (string) $issuedCard->stamps_count],
@@ -148,9 +154,27 @@ class TransactionController extends Controller
                             ],
                         ],
                     ]);
-                    $issuedCard->update(['last_google_update' => now()]);
+                    if ($updated) {
+                        $issuedCard->update(['last_google_update' => now()]);
+                        $googleWalletStatus = [
+                            'status' => 'success',
+                            'object_id' => $issuedCard->google_object_id,
+                            'last_google_update' => optional($issuedCard->last_google_update)->toIso8601String(),
+                        ];
+                    } else {
+                        $googleWalletStatus = [
+                            'status' => 'skipped',
+                            'message' => 'تكامل Google Wallet غير مفعّل',
+                            'object_id' => $issuedCard->google_object_id,
+                        ];
+                    }
                 } catch (\Throwable $e) {
                     report($e);
+                    $googleWalletStatus = [
+                        'status' => 'error',
+                        'message' => 'تعذر تحديث Google Wallet',
+                        'object_id' => $issuedCard->google_object_id,
+                    ];
                 }
             }
         }
@@ -175,6 +199,7 @@ class TransactionController extends Controller
                 'product' => $transaction->product?->only(['id', 'name', 'sku']),
                 'scanner' => $transaction->scanner?->only(['id', 'name', 'role']),
             ],
+            'google_wallet' => $googleWalletStatus,
         ], 201);
     }
 

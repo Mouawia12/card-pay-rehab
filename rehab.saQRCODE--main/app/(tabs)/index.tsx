@@ -195,6 +195,8 @@ export default function ScannerScreen() {
         type: 'error',
         text: message || t('scanner.scanError'),
       });
+      setScanned(false);
+      setIsScanning(false);
       Toast.show({
         type: ALERT_TYPE.DANGER,
         title: t('common.error'),

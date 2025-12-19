@@ -236,6 +236,47 @@ class CardInstanceController extends Controller
         ]]);
     }
 
+    public function reissueGoogleWallet(Request $request, CardCustomer $cardInstance)
+    {
+        $cardInstance->load(['card.business', 'customer']);
+        $this->ensureBusinessAccess($request, $cardInstance);
+
+        try {
+            $result = $this->googleWalletService->generate($cardInstance);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['message' => 'تعذر إعادة إصدار بطاقة Google Wallet'], 422);
+        }
+
+        CardActivationGoogle::create([
+            'card_customer_id' => $cardInstance->id,
+            'device_type' => $request->header('User-Agent'),
+            'device_identifier' => Str::uuid()->toString(),
+            'wallet_type' => 'google',
+            'metadata' => [
+                'reissued_by' => $request->user()?->id,
+                'origin' => $request->header('Origin') ?? $request->header('Referer'),
+            ],
+            'activated_at' => now(),
+        ]);
+
+        $cardInstance->update([
+            'google_object_id' => $result['object_id'],
+            'google_class_id' => $result['class_id'],
+            'last_google_update' => now(),
+        ]);
+
+        return response()->json([
+            'data' => [
+                'save_url' => $result['save_url'],
+                'jwt' => $result['jwt'],
+                'class_id' => $result['class_id'],
+                'object_id' => $result['object_id'],
+                'last_google_update' => optional($cardInstance->last_google_update)->toIso8601String(),
+            ],
+        ]);
+    }
+
     private function resolveCustomer(array $validated, int $businessId): Customer
     {
         if (!empty($validated['customer_id'])) {
