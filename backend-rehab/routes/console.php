@@ -4,6 +4,8 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use App\Models\CardCustomer;
 use App\Services\GoogleWalletService;
+use App\Services\CardCodeGenerator;
+use Illuminate\Support\Facades\DB;
 
 Artisan::command('google-wallet:backfill {--card_code=} {--limit=0} {--chunk=25} {--dry-run}', function (GoogleWalletService $googleWalletService) {
     if (! config('services.google_wallet.enabled')) {
@@ -73,6 +75,41 @@ Artisan::command('google-wallet:backfill {--card_code=} {--limit=0} {--chunk=25}
         $this->warn($line);
     }
 })->purpose('Backfill missing google_object_id values and objects for loyalty cards');
+
+Artisan::command('cards:assign-codes {--chunk=50}', function () {
+    $chunkSize = max(1, (int) $this->option('chunk'));
+
+    $total = CardCustomer::whereNull('card_code')->count();
+    $this->info("Found {$total} card(s) missing card_code.");
+    if ($total === 0) {
+        return;
+    }
+
+    DB::transaction(function () use ($chunkSize) {
+        CardCustomer::whereNull('card_code')
+            ->orderBy('id')
+            ->chunkById($chunkSize, function ($cards) {
+                foreach ($cards as $card) {
+                    $code = CardCodeGenerator::make();
+                    $payload = sprintf(
+                        '%s|%s|%s',
+                        $card->customer?->name ?? 'Customer',
+                        $card->card?->business?->name ?? 'Merchant',
+                        $code
+                    );
+
+                    $card->update([
+                        'card_code' => $code,
+                        'qr_payload' => $payload,
+                        'stamps_target' => $card->stamps_target ?: $card->total_stages,
+                        'status' => $card->status ?: 'active',
+                    ]);
+                }
+            });
+    });
+
+    $this->info('Finished assigning codes.');
+})->purpose('Assign missing card_code values for existing card customers');
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
