@@ -140,12 +140,18 @@ class GoogleWalletService
         }
 
         $businessName = $card->card?->business?->name ?? 'Rehab Loyalty';
+        $programLogo = $this->programLogoUrl($card);
         $create = Http::withToken($accessToken)->post(self::BASE_URL . '/loyaltyClass', [
             'id' => $classId,
             'issuerName' => $businessName,
             'programName' => $card->card?->name ?? 'Loyalty Program',
             'reviewStatus' => 'UNDER_REVIEW',
             'countryCode' => 'SA',
+            'programLogo' => [
+                'sourceUri' => [
+                    'uri' => $programLogo,
+                ],
+            ],
             'textModulesData' => [
                 [
                     'header' => 'Store',
@@ -157,6 +163,16 @@ class GoogleWalletService
         if (!$create->successful() && $create->status() !== 409) {
             throw new RuntimeException('Unable to create Google Wallet class: ' . $create->body());
         }
+    }
+
+    private function programLogoUrl(CardCustomer $card): string
+    {
+        $configLogo = config('services.google_wallet.program_logo_url');
+        $businessLogo = $card->card?->business?->logo_url;
+
+        return $businessLogo
+            ?: $configLogo
+            ?: 'https://storage.googleapis.com/wallet-lab-tools-codelab-artifacts-public/pass_google_logo.jpg';
     }
 
     private function ensureLoyaltyObject(string $objectId, string $classId, CardCustomer $card, string $accessToken): void

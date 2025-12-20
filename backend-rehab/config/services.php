@@ -48,6 +48,7 @@ return [
         'issuer_id' => env('GOOGLE_WALLET_ISSUER_ID'),
         'class_id_prefix' => env('GOOGLE_WALLET_CLASS_PREFIX', 'rehab'),
         'origin' => env('GOOGLE_WALLET_ORIGIN', env('FRONTEND_URL', env('APP_URL'))),
+        'program_logo_url' => env('GOOGLE_WALLET_PROGRAM_LOGO'),
         'enabled' => env('GOOGLE_WALLET_ENABLED', true),
     ],
 
