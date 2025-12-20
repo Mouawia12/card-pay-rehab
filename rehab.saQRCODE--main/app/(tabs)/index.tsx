@@ -245,6 +245,19 @@ export default function ScannerScreen() {
     let cancelled = false;
     let reader: any = null;
 
+    const stopReader = () => {
+      if (!reader) return;
+      if (typeof reader.reset === 'function') {
+        reader.reset();
+      }
+      if (typeof reader.stopContinuousDecode === 'function') {
+        reader.stopContinuousDecode();
+      }
+      if (typeof reader.stop === 'function') {
+        reader.stop();
+      }
+    };
+
     const startWebScanner = async () => {
       try {
         const { BrowserMultiFormatReader } = await import('@zxing/browser');
@@ -255,7 +268,7 @@ export default function ScannerScreen() {
         reader.decodeFromVideoDevice(undefined, webVideoRef.current, (result: any) => {
           if (result) {
             handleBarCodeScanned({ data: result.getText() });
-            reader.reset();
+            stopReader();
           }
         }).catch(() => {
           Toast.show({
@@ -277,7 +290,7 @@ export default function ScannerScreen() {
 
     return () => {
       cancelled = true;
-      reader?.reset();
+      stopReader();
     };
   }, [handleBarCodeScanned, isScanning, isWeb, t]);
 
