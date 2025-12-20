@@ -17,13 +17,22 @@ class TransactionController extends Controller
     }
 
     /**
-     * Explicit scan endpoint delegates to store() to keep responses JSON-only.
+     * Explicit scan endpoint: only needs card_code and fills defaults.
      */
     public function scan(Request $request)
     {
         $request->headers->set('Accept', 'application/json');
 
-        return $this->store($request);
+        $validated = $request->validate([
+            'card_code' => ['required', 'string', 'exists:card_customers,card_code'],
+        ]);
+
+        $payload = array_merge([
+            'type' => 'scan',
+            'amount' => 0,
+        ], $validated);
+
+        return $this->processTransaction($request, $payload);
     }
 
     /**
@@ -76,6 +85,11 @@ class TransactionController extends Controller
             'stamps_awarded' => ['nullable', 'integer', 'min:1'],
         ]);
 
+        return $this->processTransaction($request, $validated);
+    }
+
+    private function processTransaction(Request $request, array $validated)
+    {
         $businessId = $request->user()?->business_id ?? $request->input('business_id');
         $card = null;
         $customer = null;
@@ -130,6 +144,14 @@ class TransactionController extends Controller
             ],
         ]);
 
+        $googleWalletStatus = [
+            'status' => 'skipped',
+            'message' => 'لا يوجد Google Wallet مفعّل لهذه البطاقة',
+            'object_id' => $issuedCard?->google_object_id,
+            'save_url' => null,
+            'last_google_update' => null,
+        ];
+
         if ($issuedCard) {
             $increment = max(1, (int) $request->input('stamps_awarded', 1));
             $issuedCard->stamps_count += $increment;
@@ -140,11 +162,6 @@ class TransactionController extends Controller
             }
             $issuedCard->last_scanned_at = now();
             $issuedCard->save();
-
-            $googleWalletStatus = [
-                'status' => 'skipped',
-                'message' => 'لا يوجد Google Wallet مفعّل لهذه البطاقة',
-            ];
 
             if ($issuedCard->google_object_id) {
                 try {
@@ -170,12 +187,15 @@ class TransactionController extends Controller
                             'status' => 'success',
                             'object_id' => $issuedCard->google_object_id,
                             'last_google_update' => optional($issuedCard->last_google_update)->toIso8601String(),
+                            'save_url' => null,
                         ];
                     } else {
                         $googleWalletStatus = [
                             'status' => 'skipped',
                             'message' => 'تكامل Google Wallet غير مفعّل',
                             'object_id' => $issuedCard->google_object_id,
+                            'save_url' => null,
+                            'last_google_update' => optional($issuedCard->last_google_update)->toIso8601String(),
                         ];
                     }
                 } catch (\Throwable $e) {
@@ -184,6 +204,8 @@ class TransactionController extends Controller
                         'status' => 'error',
                         'message' => 'تعذر تحديث Google Wallet',
                         'object_id' => $issuedCard->google_object_id,
+                        'save_url' => null,
+                        'last_google_update' => optional($issuedCard->last_google_update)->toIso8601String(),
                     ];
                 }
             }
