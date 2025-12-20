@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 
 const STORAGE_KEY = 'REHAB_QR_RECORDS';
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const DEBUG_SCAN = process.env.EXPO_PUBLIC_DEBUG_SCAN === 'true';
 
 export interface Record {
   id: string;
@@ -16,7 +17,10 @@ export interface Record {
 
 interface StorageContextType {
   records: Record[];
-  addRecord: (record: Omit<Record, 'id'>) => Promise<void>;
+  addRecord: (record: Omit<Record, 'id'>) => Promise<{
+    transaction: any;
+    google_wallet: any;
+  }>;
   deleteRecord: (id: string) => Promise<void>;
   clearRecords: () => Promise<void>;
   reloadRecords: () => Promise<void>;
@@ -101,41 +105,60 @@ export const StorageProvider: React.FC<StorageProviderProps> = ({ children }) =>
   };
 
   const addRecord = async (record: Omit<Record, 'id'>) => {
-    if (!token) {
-      throw new Error('No auth token');
+    const payload = {
+      card_code: record.cardId,
+    };
+
+    if (DEBUG_SCAN) {
+      // eslint-disable-next-line no-console
+      console.log('SCAN request payload', payload);
     }
 
-    // send to API
-    const response = await fetch(`${API_URL}/transactions`, {
+    const response = await fetch(`${API_URL}/transactions/scan`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
       },
-      body: JSON.stringify({
-        type: 'stamp_awarded',
-        amount: 0,
-        currency: 'SAR',
-        reference: record.cardId,
-        card_code: record.cardId,
-        note: record.title,
-        happened_at: record.date,
-      }),
+      body: JSON.stringify(payload),
     });
 
-    let payload: any = null;
+    let body: any = null;
     try {
-      payload = await response.json();
+      body = await response.json();
     } catch {
-      payload = null;
+      body = null;
+    }
+
+    if (DEBUG_SCAN) {
+      // eslint-disable-next-line no-console
+      console.log('SCAN response', response.status, body);
     }
 
     if (!response.ok) {
-      const message = payload?.message || `Failed to add record (${response.status})`;
+      const message =
+        body?.message ||
+        body?.error ||
+        `Failed to add record (${response.status})`;
       throw new Error(message);
     }
 
-    await loadRecords();
+    const tx = body?.data || {};
+    const gw = body?.google_wallet ?? {};
+
+    // Persist locally
+    const newRecord: Record = {
+      id: String(tx.id ?? Date.now()),
+      date: tx.happened_at || record.date || new Date().toISOString(),
+      title: tx.note || tx.type || record.title || 'Transaction',
+      cardId: tx.card?.card_code || tx.reference || record.cardId,
+      name: tx.customer?.name || record.name || 'Unknown',
+      manager: tx.scanner?.name || record.manager || 'QR Manager',
+    };
+
+    await saveRecords([newRecord, ...records]);
+
+    return { transaction: tx, google_wallet: gw };
   };
 
   const deleteRecord = async (id: string) => {

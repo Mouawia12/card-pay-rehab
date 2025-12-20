@@ -168,39 +168,71 @@ export default function ScannerScreen() {
       if (!parsed?.cardId) {
         throw new Error('invalid_qr');
       }
-      const today = new Date();
-      // Store date as ISO string for easy parsing
-      const dateString = today.toISOString();
+      const today = new Date().toISOString();
 
-      await addRecord({
-        date: dateString,
-        title: '1 اختام أصيفت',
+      const { google_wallet } = await addRecord({
+        date: today,
+        title: '1 اختام أضيفت',
         cardId: parsed.cardId,
         name: parsed.name,
         manager: parsed.manager,
       });
 
+      const successText = t('scanner.scanSuccessMessage') || 'تم تسجيل الزيارة وإضافة النقاط';
       setScanMessage({
         type: 'success',
-        text: t('scanner.scanSuccessMessage') || 'تمت إضافة النقطة بنجاح.',
+        text: successText,
       });
       Toast.show({
         type: ALERT_TYPE.SUCCESS,
         title: t('scanner.scanSuccess'),
-        textBody: t('scanner.scanSuccessMessage'),
+        textBody: successText,
       });
+
+      // Google Wallet handling
+      if (google_wallet?.status === 'success') {
+        if (google_wallet.save_url) {
+          if (Platform.OS === 'web') {
+            window.location.href = google_wallet.save_url;
+          } else {
+            // Native: open in browser
+            const Linking = (await import('react-native')).Linking;
+            Linking.openURL(google_wallet.save_url);
+          }
+        } else {
+          Toast.show({
+            type: ALERT_TYPE.INFO,
+            title: t('scanner.walletAlreadyAdded') || 'البطاقة مضافة مسبقًا إلى Google Wallet',
+            textBody: t('scanner.walletAlreadyAdded') || 'البطاقة مضافة مسبقًا إلى Google Wallet',
+          });
+        }
+      }
     } catch (error) {
-      const message = error instanceof Error ? error.message : t('scanner.scanError');
+      console.error('Scan error', error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : t('scanner.scanError') || 'حدث خطأ، يرجى المحاولة لاحقًا';
+      let userMessage = message;
+
+      if (message === 'invalid_qr') {
+        userMessage = t('scanner.invalidCard') || 'البطاقة غير صالحة';
+      } else if (message.includes('404')) {
+        userMessage = t('scanner.invalidCard') || 'البطاقة غير صالحة';
+      } else if (message.includes('422')) {
+        userMessage = message;
+      }
+
       setScanMessage({
         type: 'error',
-        text: message || t('scanner.scanError'),
+        text: userMessage || t('scanner.scanError'),
       });
       setScanned(false);
       setIsScanning(false);
       Toast.show({
         type: ALERT_TYPE.DANGER,
         title: t('common.error'),
-        textBody: message || t('scanner.scanError'),
+        textBody: userMessage || t('scanner.scanError'),
       });
     }
   }, [addRecord, scanned, t]);
