@@ -87,6 +87,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/card-instances/{cardInstance}/google-wallet/reissue', [CardInstanceController::class, 'reissueGoogleWallet'])->name('card-instances.google-wallet.reissue');
         Route::apiResource('customers', CustomerController::class);
         Route::apiResource('products', ProductController::class);
+        Route::post('/transactions/scan', [TransactionController::class, 'scan'])->name('transactions.scan')->withoutMiddleware('auth:sanctum');
         Route::apiResource('transactions', TransactionController::class)->withoutMiddleware('auth:sanctum');
         Route::apiResource('blog', BlogPostController::class)->except(['index', 'show']);
         Route::apiResource('plans', SubscriptionPlanController::class)->except(['index', 'show']);

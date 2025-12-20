@@ -17,6 +17,16 @@ class TransactionController extends Controller
     }
 
     /**
+     * Explicit scan endpoint delegates to store() to keep responses JSON-only.
+     */
+    public function scan(Request $request)
+    {
+        $request->headers->set('Accept', 'application/json');
+
+        return $this->store($request);
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
