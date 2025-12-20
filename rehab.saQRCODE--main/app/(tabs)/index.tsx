@@ -23,6 +23,7 @@ export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [scanMessage, setScanMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const { addRecord } = useStorage();
   const { startScanningRef } = useScanner();
@@ -158,8 +159,9 @@ export default function ScannerScreen() {
   };
 
   const handleBarCodeScanned = useCallback(async ({ data }: { data: string }) => {
-    if (scanned) return;
+    if (scanned || isSubmitting) return;
     
+    setIsSubmitting(true);
     setScanned(true);
     setIsScanning(false);
 
@@ -234,8 +236,10 @@ export default function ScannerScreen() {
         title: t('common.error'),
         textBody: userMessage || t('scanner.scanError'),
       });
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [addRecord, scanned, t]);
+  }, [addRecord, isSubmitting, scanned, t]);
 
   useEffect(() => {
     if (!isWeb) return;
