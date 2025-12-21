@@ -121,15 +121,6 @@ class TransactionController extends Controller
             $businessId = $businessId ?: $card?->business_id;
         }
 
-        if ($issuedCard && $issuedCard->last_scanned_at) {
-            $diffSeconds = now()->diffInSeconds($issuedCard->last_scanned_at);
-            if ($diffSeconds < 10) {
-                return response()->json([
-                    'message' => 'تم تسجيل الزيارة للتو. يرجى الانتظار قليلاً قبل المسح مرة أخرى.',
-                ], 429);
-            }
-        }
-
         if (! $issuedCard && $request->filled('card_id')) {
             $card = Card::find($validated['card_id']);
             if ($card) {
