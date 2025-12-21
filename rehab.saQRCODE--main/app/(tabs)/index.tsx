@@ -32,6 +32,7 @@ export default function ScannerScreen() {
   const webVideoRef = useRef<any>(null);
   const webScannerRef = useRef<any>(null);
   const scanLockRef = useRef(false);
+  const lastScanRef = useRef<{ data: string; at: number } | null>(null);
 
   // Dynamic text styles based on content
   const titleStyle = getTextStyle(t('scanner.title'));
@@ -58,6 +59,15 @@ export default function ScannerScreen() {
   }, [permission, t]);
 
   const startScanning = useCallback(async () => {
+    if (isSubmitting) {
+      Toast.show({
+        type: ALERT_TYPE.INFO,
+        title: t('common.loading'),
+        textBody: t('scanner.scanInProgress') || 'يرجى الانتظار قليلاً',
+      });
+      return;
+    }
+    if (isScanning) return;
     if (!isWeb && !permission?.granted) {
       const { granted } = await requestPermission();
       if (!granted) {
@@ -74,7 +84,8 @@ export default function ScannerScreen() {
     setScanned(false);
     setScanMessage(null);
     scanLockRef.current = false;
-  }, [isWeb, permission, requestPermission, t]);
+    lastScanRef.current = null;
+  }, [isSubmitting, isScanning, isWeb, permission, requestPermission, t]);
 
   // Register startScanning function in the context
   useEffect(() => {
@@ -162,7 +173,14 @@ export default function ScannerScreen() {
   };
 
   const handleBarCodeScanned = useCallback(async ({ data }: { data: string }) => {
+    if (!isScanning) return;
     if (scanLockRef.current || scanned || isSubmitting) return;
+    const now = Date.now();
+    const lastScan = lastScanRef.current;
+    if (lastScan && lastScan.data === data && now - lastScan.at < 5000) {
+      return;
+    }
+    lastScanRef.current = { data, at: now };
     scanLockRef.current = true;
     
     setIsSubmitting(true);
@@ -243,7 +261,7 @@ export default function ScannerScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [addRecord, isSubmitting, scanned, t]);
+  }, [addRecord, isScanning, isSubmitting, scanned, t]);
 
   useEffect(() => {
     if (!isWeb) return;
