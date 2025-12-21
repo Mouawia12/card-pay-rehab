@@ -140,7 +140,17 @@ export default function ScannerScreen() {
     scanLockRef.current = false;
     scanSessionRef.current = null;
     if (isWeb) {
-      webScannerRef.current?.reset();
+      if (typeof webScannerRef.current?.reset === 'function') {
+        webScannerRef.current.reset();
+      }
+      const videoEl = webVideoRef.current as HTMLVideoElement | null;
+      const stream = videoEl?.srcObject as MediaStream | null;
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+      if (videoEl) {
+        videoEl.srcObject = null;
+      }
       webScannerRef.current = null;
     }
   };
