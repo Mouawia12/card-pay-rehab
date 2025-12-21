@@ -40,9 +40,15 @@ export default function CardPage() {
   const [isStandalone, setIsStandalone] = useState(false);
   const lastMessageRef = useRef<string | null>(null);
 
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
   const supportsPush = useMemo(() => {
     return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
   }, []);
+
+  const supportsPwa = useMemo(() => {
+    return "serviceWorker" in navigator && (Boolean(installPrompt) || isIOS);
+  }, [installPrompt, isIOS]);
 
   const loadCard = useCallback(async () => {
     if (!cardCode) {
@@ -136,14 +142,22 @@ export default function CardPage() {
   }, [ensureServiceWorker, supportsPush]);
 
   const handleInstall = useCallback(async () => {
-    if (!installPrompt) return;
+    if (isIOS && !installPrompt) {
+      toast.message("اضغط Share ثم Add to Home Screen لإضافة البطاقة");
+      return;
+    }
+    if (!installPrompt) {
+      toast.error("تعذر إظهار نافذة التثبيت");
+      return;
+    }
     await installPrompt.prompt();
     const choice = await installPrompt.userChoice;
     if (choice.outcome === "accepted") {
-      toast.success("تمت إضافة البطاقة للشاشة الرئيسية");
+      toast.success("تمت إضافة البطاقة إلى الشاشة الرئيسية");
       setInstallPrompt(null);
+      setIsStandalone(true);
     }
-  }, [installPrompt]);
+  }, [installPrompt, isIOS]);
 
   useEffect(() => {
     loadCard();
@@ -190,7 +204,6 @@ export default function CardPage() {
   const stampsTarget = card?.stamps_target ?? card?.template?.total_stages ?? 0;
   const stampsCount = card?.stamps_count ?? 0;
   const lastVisit = card?.last_scanned_at || card?.customer?.last_visit_at || null;
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isAndroid = /android/i.test(navigator.userAgent);
   const showAppleWallet = Boolean(isIOS && card?.pkpass_url);
   const showGoogleWallet = Boolean(isAndroid && card?.google_wallet?.url);
@@ -230,11 +243,6 @@ export default function CardPage() {
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              {!isStandalone && installPrompt ? (
-                <Button onClick={handleInstall} className="gap-2">
-                  ➕ أضف إلى الشاشة الرئيسية
-                </Button>
-              ) : null}
               <Button
                 variant={pushEnabled ? "secondary" : "default"}
                 onClick={pushEnabled ? handleDisablePush : handleEnablePush}
@@ -271,6 +279,13 @@ export default function CardPage() {
               </div>
             ) : null}
           </div>
+          {!isStandalone && supportsPwa ? (
+            <div className="mt-4">
+              <Button onClick={handleInstall} className="gap-2">
+                ➕ أضف البطاقة إلى الشاشة الرئيسية
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
