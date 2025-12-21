@@ -34,6 +34,8 @@ export default function ScannerScreen() {
   const scanLockRef = useRef(false);
   const lastScanRef = useRef<{ data: string; at: number } | null>(null);
   const scanSessionRef = useRef<{ id: number; readyAt: number } | null>(null);
+  const lastAcceptedRef = useRef<{ data: string; at: number } | null>(null);
+  const SCAN_COOLDOWN_MS = 15000;
 
   // Dynamic text styles based on content
   const titleStyle = getTextStyle(t('scanner.title'));
@@ -191,6 +193,10 @@ export default function ScannerScreen() {
     if (lastScan && lastScan.data === data && now - lastScan.at < 5000) {
       return;
     }
+    const lastAccepted = lastAcceptedRef.current;
+    if (lastAccepted && lastAccepted.data === data && now - lastAccepted.at < SCAN_COOLDOWN_MS) {
+      return;
+    }
     lastScanRef.current = { data, at: now };
     scanLockRef.current = true;
     
@@ -242,6 +248,7 @@ export default function ScannerScreen() {
           });
         }
       }
+      lastAcceptedRef.current = { data, at: Date.now() };
     } catch (error) {
       console.error('Scan error', error);
       const message =
