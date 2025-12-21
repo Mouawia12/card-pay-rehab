@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { Toast, Dialog, ALERT_TYPE } from 'react-native-alert-notification';
 import { getTextStyle } from '@/utils/textDirection';
 import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 
 export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -28,6 +29,7 @@ export default function ScannerScreen() {
   const { addRecord } = useStorage();
   const { startScanningRef } = useScanner();
   const { t } = useTranslation();
+  const router = useRouter();
   const isWeb = Platform.OS === 'web';
   const webVideoRef = useRef<any>(null);
   const webScannerRef = useRef<any>(null);
@@ -92,7 +94,7 @@ export default function ScannerScreen() {
     setScanMessage(null);
     scanLockRef.current = false;
     lastScanRef.current = null;
-    scanSessionRef.current = { id: Date.now(), readyAt: Date.now() + 700 };
+    scanSessionRef.current = { id: Date.now(), readyAt: Date.now() + 1200 };
   }, [isSubmitting, isScanning, isWeb, permission, requestPermission, t]);
 
   // Register startScanning function in the context
@@ -229,6 +231,8 @@ export default function ScannerScreen() {
         title: t('scanner.scanSuccess'),
         textBody: successText,
       });
+      stopScanning();
+      router.push('/(tabs)/records');
 
       // Google Wallet handling
       if (google_wallet?.status === 'success') {
@@ -279,7 +283,7 @@ export default function ScannerScreen() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [addRecord, isScanning, isSubmitting, scanned, t]);
+  }, [addRecord, isScanning, isSubmitting, scanned, t, router]);
 
   useEffect(() => {
     if (!isWeb) return;
@@ -289,6 +293,7 @@ export default function ScannerScreen() {
     let cancelled = false;
     let reader: any = null;
     let allowResults = false;
+    const sessionId = scanSessionRef.current?.id;
 
     const stopReader = () => {
       if (!reader) return;
@@ -336,6 +341,7 @@ export default function ScannerScreen() {
         webScannerRef.current = reader;
 
         reader.decodeFromVideoDevice(undefined, webVideoRef.current, (result: any) => {
+          if (scanSessionRef.current?.id !== sessionId) return;
           if (!allowResults) return;
           if (result) {
             handleBarCodeScanned({ data: result.getText() });
