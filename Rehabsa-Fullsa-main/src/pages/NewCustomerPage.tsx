@@ -48,23 +48,11 @@ export default function NewCustomerPage() {
       setSubmitting(true);
       const response = await registerPublicCard(cardCode, { name, phone, email });
       const payload = response.data.card_instance;
-      const ua = navigator.userAgent.toLowerCase();
-      const isIOS = /iphone|ipad|ipod/.test(ua);
-      const isAndroid = /android/.test(ua);
-      if (isIOS && payload.pkpass_url) {
-        window.location.href = payload.pkpass_url;
+      if (payload?.card_code) {
+        navigate(`/card?card=${payload.card_code}`);
         return;
       }
-      if (isAndroid && payload.google_wallet_url) {
-        window.location.href = payload.google_wallet_url;
-        return;
-      }
-      const fallbackUrl = payload.google_wallet_url || payload.pkpass_url || payload.qr_url;
-      if (fallbackUrl) {
-        window.location.href = fallbackUrl;
-      } else {
-        toast.success("تم إنشاء البطاقة", { description: "يمكنك استخدام الرابط المرسل" });
-      }
+      toast.success("تم إنشاء البطاقة", { description: "يمكنك استخدام الرابط المرسل" });
     } catch (error: any) {
       toast.error(error.message || "تعذر إنشاء البطاقة");
     } finally {

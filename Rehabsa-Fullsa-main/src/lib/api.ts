@@ -47,6 +47,23 @@ interface FetchOptions {
   headers?: Record<string, string>;
 }
 
+export interface PushSubscriptionPayload {
+  card_code: string;
+  subscription: {
+    endpoint: string;
+    expirationTime?: number | null;
+    keys: {
+      p256dh: string;
+      auth: string;
+    };
+  };
+  platform?: string | null;
+}
+
+export interface PushUnsubscribePayload {
+  endpoint: string;
+}
+
 export interface AuthUser {
   id: number;
   name: string;
@@ -396,6 +413,27 @@ export async function fetchPublicCard(cardCode: string) {
 
 export async function registerPublicCard(cardCode: string, payload: { name: string; phone: string; email?: string | null }) {
   return apiFetch<{ data: PublicRegistrationResult }>(`/public/cards/${cardCode}/register`, {
+    method: "POST",
+    data: payload,
+  });
+}
+
+export async function subscribePushNotification(payload: PushSubscriptionPayload) {
+  return apiFetch<{ data: { status: string } }>("/push/subscribe", {
+    method: "POST",
+    data: payload,
+  });
+}
+
+export async function unsubscribePushNotification(payload: PushUnsubscribePayload) {
+  return apiFetch<{ data: { status: string } }>("/push/unsubscribe", {
+    method: "POST",
+    data: payload,
+  });
+}
+
+export async function sendMarketingNotification(payload: { message: string; title?: string; scope?: \"all\" | \"business\" }) {
+  return apiFetch<{ data: { sent: number } }>("/push/marketing", {
     method: "POST",
     data: payload,
   });

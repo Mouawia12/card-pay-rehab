@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\BlogCategoryController;
 use App\Http\Controllers\Api\BlogCommentController;
 use App\Http\Controllers\Api\PublicCardRegistrationController;
+use App\Http\Controllers\Api\PushSubscriptionController;
 
 Route::prefix('v1')->group(function () {
     Route::post('/auth/register', [AuthController::class, 'register']);
@@ -43,6 +44,8 @@ Route::prefix('v1')->group(function () {
     Route::get('/cards/code/{card_code}/qr', [CardController::class, 'qrByCode'])->name('cards.qr.public');
     Route::get('/public/cards/{card_code}', [PublicCardRegistrationController::class, 'show'])->name('public.cards.show');
     Route::post('/public/cards/{card_code}/register', [PublicCardRegistrationController::class, 'register'])->name('public.cards.register');
+    Route::post('/push/subscribe', [PushSubscriptionController::class, 'subscribe']);
+    Route::post('/push/unsubscribe', [PushSubscriptionController::class, 'unsubscribe']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
@@ -75,6 +78,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/admin/site-content', [AdminSiteContentController::class, 'index']);
         Route::get('/admin/site-content/{section}', [AdminSiteContentController::class, 'show']);
         Route::put('/admin/site-content/{section}', [AdminSiteContentController::class, 'update']);
+        Route::post('/push/marketing', [PushSubscriptionController::class, 'sendMarketing']);
 
         Route::apiResource('businesses', BusinessController::class);
         Route::apiResource('cards', CardController::class);

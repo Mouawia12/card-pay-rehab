@@ -9,6 +9,7 @@ use App\Models\Card;
 use App\Models\CardActivation;
 use App\Models\CardActivationGoogle;
 use App\Models\Customer;
+use App\Models\PushSubscription;
 
 class CardCustomer extends Model
 {
@@ -64,5 +65,10 @@ class CardCustomer extends Model
     public function googleActivations(): HasMany
     {
         return $this->hasMany(CardActivationGoogle::class);
+    }
+
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
     }
 }

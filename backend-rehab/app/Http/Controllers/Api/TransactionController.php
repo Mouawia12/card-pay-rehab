@@ -8,11 +8,15 @@ use App\Models\CardCustomer;
 use App\Models\Customer;
 use App\Models\Transaction;
 use App\Services\GoogleWalletService;
+use App\Services\WebPushService;
 use Illuminate\Http\Request;
 
 class TransactionController extends Controller
 {
-    public function __construct(private readonly GoogleWalletService $googleWalletService)
+    public function __construct(
+        private readonly GoogleWalletService $googleWalletService,
+        private readonly WebPushService $webPushService
+    )
     {
     }
 
@@ -213,6 +217,25 @@ class TransactionController extends Controller
 
         if ($customer) {
             $customer->update(['last_visit_at' => now()]);
+        }
+
+        if ($issuedCard) {
+            $target = $issuedCard->stamps_target ?: $issuedCard->total_stages ?: 0;
+            $payload = [
+                'title' => '🎉 تمت إضافة نقاط جديدة',
+                'body' => sprintf('رصيدك الآن: %s / %s', $issuedCard->stamps_count, $target),
+                'data' => [
+                    'type' => 'points_update',
+                    'card_code' => $issuedCard->card_code,
+                    'url' => rtrim(config('app.frontend_url', config('app.url')), '/') . '/card?card=' . $issuedCard->card_code,
+                ],
+            ];
+
+            try {
+                $this->webPushService->sendToCard($issuedCard, $payload);
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         $transaction->load(['customer', 'card', 'product', 'scanner']);

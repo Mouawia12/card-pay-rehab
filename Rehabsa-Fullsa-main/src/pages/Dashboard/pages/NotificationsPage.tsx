@@ -4,7 +4,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Users, Smile, BellRing } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useDirection } from "@/hooks/useDirection";
+import { sendMarketingNotification } from "@/lib/api";
 import iosFrame from "@/assets/ios.svg";
+import { toast } from "sonner";
 
 interface Location {
   id: number;
@@ -139,6 +141,7 @@ export function NotificationsPage() {
   const [targetType, setTargetType] = useState<"all" | "selected">("all");
   const [message, setMessage] = useState("");
   const [recipientCount] = useState(156);
+  const [sending, setSending] = useState(false);
   const previewMessage = "Write your notification message with emojies 👀 🎫 💬 😍";
 
   const maxLength = 100;
@@ -177,6 +180,23 @@ export function NotificationsPage() {
   const selectedLocation = locations.find(
     (loc) => loc.id.toString() === selectedLocationId
   );
+
+  const handleSend = async () => {
+    if (!message.trim()) return;
+    try {
+      setSending(true);
+      const scope = targetType === "all" ? "business" : "business";
+      const response = await sendMarketingNotification({ message: message.trim(), scope });
+      toast.success(t("dashboardPages.messages.notificationSent") || "تم إرسال الإشعار", {
+        description: `تم الإرسال إلى ${response.data.sent ?? 0} مشترك`,
+      });
+      setMessage("");
+    } catch (error: any) {
+      toast.error(error?.message || "تعذر إرسال الإشعار");
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div className="w-[86%] min-h-[100vh] py-3 relative max-xl:w-full">
@@ -260,9 +280,10 @@ export function NotificationsPage() {
             <Smile className="absolute right-[3%] top-[25%] text-Gray cursor-pointer w-6 h-6" />
             <button
               className="main-btn text-[14px] font-medium w-fit px-16"
-              disabled={!message.trim()}
+              disabled={!message.trim() || sending}
+              onClick={handleSend}
             >
-              إرسال
+              {sending ? "جارٍ الإرسال..." : "إرسال"}
             </button>
           </div>
 
@@ -371,4 +392,3 @@ export function NotificationsPage() {
     </div>
   );
 }
-

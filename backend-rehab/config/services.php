@@ -52,4 +52,10 @@ return [
         'enabled' => env('GOOGLE_WALLET_ENABLED', true),
     ],
 
+    'web_push' => [
+        'public_key' => env('VAPID_PUBLIC_KEY'),
+        'private_key' => env('VAPID_PRIVATE_KEY'),
+        'subject' => env('VAPID_SUBJECT', 'mailto:support@example.com'),
+    ],
+
 ];
