@@ -31,6 +31,7 @@ export default function ScannerScreen() {
   const isWeb = Platform.OS === 'web';
   const webVideoRef = useRef<any>(null);
   const webScannerRef = useRef<any>(null);
+  const scanLockRef = useRef(false);
 
   // Dynamic text styles based on content
   const titleStyle = getTextStyle(t('scanner.title'));
@@ -72,6 +73,7 @@ export default function ScannerScreen() {
     setIsScanning(true);
     setScanned(false);
     setScanMessage(null);
+    scanLockRef.current = false;
   }, [isWeb, permission, requestPermission, t]);
 
   // Register startScanning function in the context
@@ -114,6 +116,7 @@ export default function ScannerScreen() {
   const stopScanning = () => {
     setIsScanning(false);
     setScanned(false);
+    scanLockRef.current = false;
     if (isWeb) {
       webScannerRef.current?.reset();
       webScannerRef.current = null;
@@ -159,7 +162,8 @@ export default function ScannerScreen() {
   };
 
   const handleBarCodeScanned = useCallback(async ({ data }: { data: string }) => {
-    if (scanned || isSubmitting) return;
+    if (scanLockRef.current || scanned || isSubmitting) return;
+    scanLockRef.current = true;
     
     setIsSubmitting(true);
     setScanned(true);
