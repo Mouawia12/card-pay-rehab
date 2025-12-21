@@ -288,6 +288,7 @@ export default function ScannerScreen() {
 
     let cancelled = false;
     let reader: any = null;
+    let allowResults = false;
 
     const stopReader = () => {
       if (!reader) return;
@@ -302,6 +303,31 @@ export default function ScannerScreen() {
       }
     };
 
+    const stopVideoStream = () => {
+      const videoEl = webVideoRef.current as HTMLVideoElement | null;
+      const stream = videoEl?.srcObject as MediaStream | null;
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+      if (videoEl) {
+        videoEl.srcObject = null;
+      }
+    };
+
+    const armWhenVideoReady = () => {
+      const videoEl = webVideoRef.current as HTMLVideoElement | null;
+      if (!videoEl) return;
+      const checkReady = () => {
+        if (cancelled || !isScanning) return;
+        if (videoEl.readyState >= 2 && videoEl.currentTime > 0.3) {
+          allowResults = true;
+          return;
+        }
+        requestAnimationFrame(checkReady);
+      };
+      requestAnimationFrame(checkReady);
+    };
+
     const startWebScanner = async () => {
       try {
         const { BrowserMultiFormatReader } = await import('@zxing/browser');
@@ -310,9 +336,11 @@ export default function ScannerScreen() {
         webScannerRef.current = reader;
 
         reader.decodeFromVideoDevice(undefined, webVideoRef.current, (result: any) => {
+          if (!allowResults) return;
           if (result) {
             handleBarCodeScanned({ data: result.getText() });
             stopReader();
+            stopVideoStream();
           }
         }).catch(() => {
           Toast.show({
@@ -331,10 +359,12 @@ export default function ScannerScreen() {
     };
 
     startWebScanner();
+    armWhenVideoReady();
 
     return () => {
       cancelled = true;
       stopReader();
+      stopVideoStream();
     };
   }, [handleBarCodeScanned, isScanning, isWeb, t]);
 

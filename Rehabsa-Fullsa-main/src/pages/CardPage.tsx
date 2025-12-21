@@ -165,46 +165,6 @@ export default function CardPage() {
   }, [loadCard]);
 
   useEffect(() => {
-    if (!cardCode) return;
-    let intervalId: number | null = null;
-
-    const startPolling = () => {
-      if (intervalId) return;
-      intervalId = window.setInterval(() => {
-        if (document.visibilityState === "visible") {
-          loadCard();
-        }
-      }, 15000);
-    };
-
-    const stopPolling = () => {
-      if (intervalId) {
-        window.clearInterval(intervalId);
-        intervalId = null;
-      }
-    };
-
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        loadCard();
-        startPolling();
-      } else {
-        stopPolling();
-      }
-    };
-
-    startPolling();
-    document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("focus", handleVisibility);
-
-    return () => {
-      stopPolling();
-      document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("focus", handleVisibility);
-    };
-  }, [cardCode, loadCard]);
-
-  useEffect(() => {
     const listener = (event: Event) => {
       event.preventDefault();
       setInstallPrompt(event as InstallPromptEvent);
