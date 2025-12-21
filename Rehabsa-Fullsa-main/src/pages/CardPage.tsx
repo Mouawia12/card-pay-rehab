@@ -228,21 +228,21 @@ export default function CardPage() {
     <div className="min-h-screen bg-slate-50 px-4 py-10">
       <div className="mx-auto max-w-3xl space-y-6">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div>
+          <div className="flex flex-col items-center gap-6 text-center">
+            <div className="flex flex-col items-center">
               <p className="text-xs text-slate-400">بطاقة الولاء</p>
               <h1 className="text-2xl font-semibold text-slate-900">
                 {card?.template?.name || "بطاقتك"}
               </h1>
               <p className="text-sm text-slate-500">{card?.template?.title || "تابع نقاطك مباشرة"}</p>
-              <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm text-slate-500">
                 <span className="rounded-full bg-slate-100 px-3 py-1">الكود: {card.card_code}</span>
                 <span className="rounded-full bg-slate-100 px-3 py-1">
                   آخر زيارة: {formatDateTime(lastVisit)}
                 </span>
               </div>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col items-center gap-2">
               <Button
                 variant={pushEnabled ? "secondary" : "default"}
                 onClick={pushEnabled ? handleDisablePush : handleEnablePush}
@@ -259,14 +259,14 @@ export default function CardPage() {
         </div>
 
         <div
-          className="rounded-3xl border border-slate-200 p-6 shadow-sm"
+          className="rounded-3xl border border-slate-200 p-6 text-center shadow-sm"
           style={{
             background: card?.template?.bg_color || "#0f172a",
             color: card?.template?.text_color || "#ffffff",
           }}
         >
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex flex-col items-center">
               <p className="text-sm opacity-80">رصيد النقاط</p>
               <p className="text-3xl font-semibold">
                 {stampsCount} / {stampsTarget}
@@ -289,14 +289,14 @@ export default function CardPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
             <p className="text-sm text-slate-500">النقاط</p>
             <p className="text-xl font-semibold text-slate-900">
               {stampsCount} من {stampsTarget}
             </p>
             <p className="mt-2 text-xs text-slate-400">يتم تحديث النقاط فورًا بعد كل عملية مسح.</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
             <p className="text-sm text-slate-500">آخر زيارة</p>
             <p className="text-xl font-semibold text-slate-900">{formatDateTime(lastVisit)}</p>
             <p className="mt-2 text-xs text-slate-400">سيصلك إشعار عند إضافة أي نقاط.</p>
@@ -304,9 +304,9 @@ export default function CardPage() {
         </div>
 
         {(showAppleWallet || showGoogleWallet) && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500 mb-3">Wallet (اختياري)</p>
-            <div className="flex flex-wrap gap-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
+            <p className="mb-3 text-sm text-slate-500">Wallet (اختياري)</p>
+            <div className="flex flex-wrap justify-center gap-3">
               {showAppleWallet ? (
                 <Button asChild variant="secondary">
                   <a href={card.pkpass_url} rel="noreferrer">Apple Wallet</a>
