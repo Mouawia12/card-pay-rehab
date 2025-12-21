@@ -137,6 +137,10 @@ class CardInstanceController extends Controller
 
     public function googleWallet(Request $request, string $cardCode)
     {
+        if (! config('services.google_wallet.enabled')) {
+            abort(404, 'Google Wallet غير مدعوم');
+        }
+
         $card = CardCustomer::with(['card.business', 'customer'])->where('card_code', $cardCode)->firstOrFail();
         $this->ensureBusinessAccess($request, $card, allowGuests: true);
 
@@ -203,6 +207,10 @@ class CardInstanceController extends Controller
 
     public function googleWalletRefresh(Request $request, string $cardCode)
     {
+        if (! config('services.google_wallet.enabled')) {
+            abort(404, 'Google Wallet غير مدعوم');
+        }
+
         $card = CardCustomer::with(['card.business', 'customer'])->where('card_code', $cardCode)->firstOrFail();
         $this->ensureBusinessAccess($request, $card, allowGuests: true);
 
@@ -238,6 +246,10 @@ class CardInstanceController extends Controller
 
     public function reissueGoogleWallet(Request $request, CardCustomer $cardInstance)
     {
+        if (! config('services.google_wallet.enabled')) {
+            abort(404, 'Google Wallet غير مدعوم');
+        }
+
         $cardInstance->load(['card.business', 'customer']);
         $this->ensureBusinessAccess($request, $cardInstance);
 
@@ -304,6 +316,7 @@ class CardInstanceController extends Controller
         $card->loadMissing(['customer', 'card.business', 'activations', 'googleActivations']);
         $businessName = $card->card?->business?->name;
         $lastGoogleActivation = $card->googleActivations->sortByDesc('activated_at')->first();
+        $googleWalletEnabled = config('services.google_wallet.enabled');
 
         return [
             'id' => $card->id,
@@ -323,14 +336,14 @@ class CardInstanceController extends Controller
             ),
             'qr_url' => route('card-instances.qr', ['card_code' => $card->card_code]),
             'pkpass_url' => route('card-instances.pkpass', ['card_code' => $card->card_code]),
-            'google_wallet' => [
+            'google_wallet' => $googleWalletEnabled ? [
                 'url' => route('card-instances.google-wallet', ['card_code' => $card->card_code]),
                 'installed_at' => optional($lastGoogleActivation?->activated_at)->toIso8601String(),
                 'activation_count' => $card->googleActivations->count(),
                 'object_id' => $card->google_object_id,
                 'class_id' => $card->google_class_id,
                 'last_update' => optional($card->last_google_update)->toIso8601String(),
-            ],
+            ] : null,
             'activations' => $card->activations->map(fn ($activation) => [
                 'id' => $activation->id,
                 'channel' => $activation->channel,

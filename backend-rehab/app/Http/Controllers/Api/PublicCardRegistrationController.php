@@ -110,7 +110,7 @@ class PublicCardRegistrationController extends Controller
         }
 
         $google = null;
-        if (! $issued->google_object_id) {
+        if (config('services.google_wallet.enabled') && ! $issued->google_object_id) {
             try {
                 $google = $this->googleWalletService->generate($issued);
                 $issued->update([
@@ -126,6 +126,7 @@ class PublicCardRegistrationController extends Controller
 
         // Apple pass is generated lazily via download route; expose link
         $pkpassUrl = route('card-instances.pkpass', ['card_code' => $issued->card_code]);
+        $googleWalletUrl = config('services.google_wallet.enabled') ? ($google['save_url'] ?? null) : null;
 
         return response()->json([
             'data' => [
@@ -135,9 +136,9 @@ class PublicCardRegistrationController extends Controller
                     'qr_payload' => $issued->qr_payload,
                     'qr_url' => route('card-instances.qr', ['card_code' => $issued->card_code]),
                     'pkpass_url' => $pkpassUrl,
-                    'google_wallet_url' => $google['save_url'] ?? null,
-                    'google_object_id' => $google['object_id'] ?? null,
-                    'google_class_id' => $google['class_id'] ?? null,
+                    'google_wallet_url' => $googleWalletUrl,
+                    'google_object_id' => $googleWalletUrl ? ($google['object_id'] ?? null) : null,
+                    'google_class_id' => $googleWalletUrl ? ($google['class_id'] ?? null) : null,
                 ],
                 'registration_url' => $this->registrationUrl($card),
             ],

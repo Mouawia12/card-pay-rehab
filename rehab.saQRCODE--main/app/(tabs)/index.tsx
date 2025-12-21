@@ -33,6 +33,7 @@ export default function ScannerScreen() {
   const webScannerRef = useRef<any>(null);
   const scanLockRef = useRef(false);
   const lastScanRef = useRef<{ data: string; at: number } | null>(null);
+  const scanSessionRef = useRef<{ id: number; readyAt: number } | null>(null);
 
   // Dynamic text styles based on content
   const titleStyle = getTextStyle(t('scanner.title'));
@@ -68,6 +69,10 @@ export default function ScannerScreen() {
       return;
     }
     if (isScanning) return;
+    if (isWeb && webScannerRef.current) {
+      webScannerRef.current?.reset?.();
+      webScannerRef.current = null;
+    }
     if (!isWeb && !permission?.granted) {
       const { granted } = await requestPermission();
       if (!granted) {
@@ -85,6 +90,7 @@ export default function ScannerScreen() {
     setScanMessage(null);
     scanLockRef.current = false;
     lastScanRef.current = null;
+    scanSessionRef.current = { id: Date.now(), readyAt: Date.now() + 700 };
   }, [isSubmitting, isScanning, isWeb, permission, requestPermission, t]);
 
   // Register startScanning function in the context
@@ -128,6 +134,7 @@ export default function ScannerScreen() {
     setIsScanning(false);
     setScanned(false);
     scanLockRef.current = false;
+    scanSessionRef.current = null;
     if (isWeb) {
       webScannerRef.current?.reset();
       webScannerRef.current = null;
@@ -174,6 +181,10 @@ export default function ScannerScreen() {
 
   const handleBarCodeScanned = useCallback(async ({ data }: { data: string }) => {
     if (!isScanning) return;
+    const session = scanSessionRef.current;
+    if (!session || Date.now() < session.readyAt) {
+      return;
+    }
     if (scanLockRef.current || scanned || isSubmitting) return;
     const now = Date.now();
     const lastScan = lastScanRef.current;
