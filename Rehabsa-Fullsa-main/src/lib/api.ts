@@ -432,7 +432,7 @@ export async function unsubscribePushNotification(payload: PushUnsubscribePayloa
   });
 }
 
-export async function sendMarketingNotification(payload: { message: string; title?: string; scope?: \"all\" | \"business\" }) {
+export async function sendMarketingNotification(payload: { message: string; title?: string; scope?: "all" | "business" }) {
   return apiFetch<{ data: { sent: number } }>("/push/marketing", {
     method: "POST",
     data: payload,
