@@ -39,6 +39,7 @@ export default function CardPage() {
   const [pushBusy, setPushBusy] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const lastMessageRef = useRef<string | null>(null);
+  const pushResyncRef = useRef(false);
 
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
@@ -164,6 +165,46 @@ export default function CardPage() {
   }, [loadCard]);
 
   useEffect(() => {
+    if (!cardCode) return;
+    let intervalId: number | null = null;
+
+    const startPolling = () => {
+      if (intervalId) return;
+      intervalId = window.setInterval(() => {
+        if (document.visibilityState === "visible") {
+          loadCard();
+        }
+      }, 15000);
+    };
+
+    const stopPolling = () => {
+      if (intervalId) {
+        window.clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        loadCard();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+
+    startPolling();
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleVisibility);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleVisibility);
+    };
+  }, [cardCode, loadCard]);
+
+  useEffect(() => {
     const listener = (event: Event) => {
       event.preventDefault();
       setInstallPrompt(event as InstallPromptEvent);
@@ -182,6 +223,31 @@ export default function CardPage() {
   useEffect(() => {
     syncPushStatus();
   }, [syncPushStatus]);
+
+  useEffect(() => {
+    if (!supportsPush || !cardCode) return;
+    if (pushResyncRef.current) return;
+    if (Notification.permission !== "granted") return;
+
+    const resync = async () => {
+      try {
+        const registration = await ensureServiceWorker();
+        const subscription = await registration?.pushManager.getSubscription();
+        if (!subscription) return;
+        await subscribePushNotification({
+          card_code: cardCode,
+          subscription: subscription.toJSON(),
+          platform: navigator.platform,
+        });
+        pushResyncRef.current = true;
+        setPushEnabled(true);
+      } catch {
+        // Ignore resync errors to avoid noisy UX.
+      }
+    };
+
+    resync();
+  }, [cardCode, ensureServiceWorker, supportsPush]);
 
   useEffect(() => {
     if (!supportsPush) return;
