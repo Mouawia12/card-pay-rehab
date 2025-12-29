@@ -8,6 +8,7 @@ use App\Models\CardCustomer;
 use App\Models\Customer;
 use App\Models\Transaction;
 use App\Services\GoogleWalletService;
+use App\Services\QrPayloadService;
 use App\Services\WebPushService;
 use Illuminate\Http\Request;
 
@@ -15,6 +16,7 @@ class TransactionController extends Controller
 {
     public function __construct(
         private readonly GoogleWalletService $googleWalletService,
+        private readonly QrPayloadService $qrPayloadService,
         private readonly WebPushService $webPushService
     )
     {
@@ -29,12 +31,20 @@ class TransactionController extends Controller
 
         $validated = $request->validate([
             'card_code' => ['required', 'string', 'exists:card_customers,card_code'],
+            'expires_at' => ['required', 'integer'],
+            'signature' => ['required', 'string'],
         ]);
+
+        if (! $this->qrPayloadService->verify($validated['card_code'], (int) $validated['expires_at'], $validated['signature'])) {
+            return response()->json([
+                'message' => 'رمز المسح غير صالح أو منتهي الصلاحية.',
+            ], 422);
+        }
 
         $payload = array_merge([
             'type' => 'scan',
             'amount' => 0,
-        ], $validated);
+        ], array_diff_key($validated, array_flip(['expires_at', 'signature'])));
 
         return $this->processTransaction($request, $payload);
     }
@@ -44,7 +54,10 @@ class TransactionController extends Controller
      */
     public function index(Request $request)
     {
-        $businessId = $request->user()?->business_id ?? $request->query('business_id');
+        $businessId = $request->user()?->business_id;
+        if (! $businessId) {
+            abort(403, 'غير مصرح');
+        }
 
         $transactions = Transaction::with(['customer', 'card', 'product', 'scanner'])
             ->when($businessId, fn ($q) => $q->where('business_id', $businessId))
@@ -94,7 +107,10 @@ class TransactionController extends Controller
 
     private function processTransaction(Request $request, array $validated)
     {
-        $businessId = $request->user()?->business_id ?? $request->input('business_id');
+        $businessId = $request->user()?->business_id;
+        if (! $businessId) {
+            abort(403, 'غير مصرح');
+        }
         $card = null;
         $customer = null;
 
@@ -118,23 +134,23 @@ class TransactionController extends Controller
             $validated['card_id'] = $card?->id;
             $validated['customer_id'] = $customer?->id;
             $validated['reference'] = $validated['reference'] ?? $issuedCard->card_code;
-            $businessId = $businessId ?: $card?->business_id;
+            if ($card?->business_id && $card->business_id !== $businessId) {
+                abort(403, 'غير مصرح');
+            }
         }
 
         if (! $issuedCard && $request->filled('card_id')) {
             $card = Card::find($validated['card_id']);
             if ($card) {
-                $businessId = $businessId ?: $card->business_id;
+                if ($card->business_id !== $businessId) {
+                    abort(403, 'غير مصرح');
+                }
                 $issuedCard = CardCustomer::where('card_id', $card->id)
                     ->when($request->filled('customer_id'), fn ($q) => $q->where('customer_id', $validated['customer_id']))
                     ->latest('issue_date')
                     ->first();
                 $customer = $issuedCard?->customer ?? ($request->filled('customer_id') ? Customer::find($validated['customer_id']) : null);
             }
-        }
-
-        if (! $businessId) {
-            $businessId = $request->user()?->business_id;
         }
 
         $transaction = Transaction::create([
@@ -264,6 +280,7 @@ class TransactionController extends Controller
     public function show(string $id)
     {
         $transaction = Transaction::with(['customer', 'card', 'product'])->findOrFail($id);
+        $this->ensureBusinessAccess(request(), $transaction);
 
         return response()->json(['data' => $transaction]);
     }
@@ -274,6 +291,7 @@ class TransactionController extends Controller
     public function update(Request $request, string $id)
     {
         $transaction = Transaction::findOrFail($id);
+        $this->ensureBusinessAccess($request, $transaction);
 
         $validated = $request->validate([
             'type' => ['sometimes', 'string'],
@@ -295,8 +313,17 @@ class TransactionController extends Controller
     public function destroy(string $id)
     {
         $transaction = Transaction::findOrFail($id);
+        $this->ensureBusinessAccess(request(), $transaction);
         $transaction->delete();
 
         return response()->json(['message' => 'تم حذف السجل']);
+    }
+
+    private function ensureBusinessAccess(Request $request, Transaction $transaction): void
+    {
+        $businessId = $request->user()?->business_id;
+        if (! $businessId || $transaction->business_id !== $businessId) {
+            abort(403, 'غير مصرح');
+        }
     }
 }

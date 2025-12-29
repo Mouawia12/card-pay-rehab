@@ -58,4 +58,7 @@ return [
         'subject' => env('VAPID_SUBJECT', 'mailto:support@example.com'),
     ],
 
+    'scan_signature_secret' => env('SCAN_SIGNATURE_SECRET'),
+    'scan_qr_ttl_minutes' => env('SCAN_QR_TTL_MINUTES', 525600),
+
 ];

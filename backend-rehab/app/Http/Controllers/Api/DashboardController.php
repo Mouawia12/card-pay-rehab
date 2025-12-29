@@ -14,7 +14,7 @@ class DashboardController extends Controller
 {
     public function summary(Request $request)
     {
-        $businessId = $request->user()?->business_id ?? $request->query('business_id');
+        $businessId = $this->requireBusinessId($request);
 
         $cardQuery = Card::query();
         $customerQuery = Customer::query();
@@ -38,5 +38,15 @@ class DashboardController extends Controller
                 'latest_customers' => $customerQuery->latest()->limit(5)->get(['id', 'name', 'phone', 'created_at']),
             ],
         ]);
+    }
+
+    private function requireBusinessId(Request $request): int
+    {
+        $businessId = $request->user()?->business_id;
+        if (! $businessId) {
+            abort(403, 'غير مصرح');
+        }
+
+        return $businessId;
     }
 }

@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
@@ -17,8 +16,6 @@ class AuthController extends Controller
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:20', 'unique:users,phone'],
             'password' => ['required', 'string', 'min:6'],
-            'role' => ['nullable', Rule::in(['merchant', 'staff'])],
-            'business_id' => ['nullable', 'exists:businesses,id'],
         ]);
 
         $user = User::create([
@@ -26,8 +23,8 @@ class AuthController extends Controller
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?? null,
             'password' => Hash::make($validated['password']),
-            'role' => $validated['role'] ?? 'merchant',
-            'business_id' => $validated['business_id'] ?? null,
+            'role' => 'customer',
+            'business_id' => null,
         ]);
 
         $token = $user->createToken('api')->plainTextToken;

@@ -434,7 +434,12 @@ export function CreateCardPage() {
           ))}
         </div>
         <div className="flex items-center justify-between gap-6 max-lg:hidden">
-          <button className="w-[197px] py-3 bg-white text-primary rounded-[6px] font-[500] text-[13px] hover:bg-gray-100 hover:text-primary transition-all">
+          <button
+            type="button"
+            onClick={handleSaveCard}
+            disabled={isSubmitting || loadingCard}
+            className="w-[197px] py-3 bg-white text-primary rounded-[6px] font-[500] text-[13px] hover:bg-gray-100 hover:text-primary transition-all disabled:cursor-not-allowed disabled:opacity-60"
+          >
             حفظ ومعاينة
           </button>
         </div>

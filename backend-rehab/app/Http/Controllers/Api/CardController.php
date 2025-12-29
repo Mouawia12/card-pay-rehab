@@ -7,13 +7,17 @@ use App\Models\Card;
 use App\Models\CardCustomer;
 use App\Models\Customer;
 use App\Services\CardCodeGenerator;
+use App\Services\QrPayloadService;
 use App\Services\QrCodeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class CardController extends Controller
 {
-    public function __construct(private readonly QrCodeService $qrCodeService)
+    public function __construct(
+        private readonly QrCodeService $qrCodeService,
+        private readonly QrPayloadService $qrPayloadService
+    )
     {
     }
 
@@ -22,7 +26,7 @@ class CardController extends Controller
      */
     public function index(Request $request)
     {
-        $businessId = $request->user()?->business_id ?? $request->query('business_id');
+        $businessId = $this->requireBusinessId($request);
 
         $cards = Card::with(['business', 'creator'])
             ->withCount('cardCustomers')
@@ -75,7 +79,7 @@ class CardController extends Controller
             'settings' => ['nullable', 'array'],
         ]);
 
-        $businessId = $request->user()?->business_id ?? $request->input('business_id');
+        $businessId = $this->requireBusinessId($request);
 
         $card = Card::create([
             ...$validated,
@@ -103,6 +107,7 @@ class CardController extends Controller
             'cardCustomers.customer',
             'cardCustomers.googleActivations',
         ])->findOrFail($id);
+        $this->ensureBusinessAccess(request(), $card);
 
         return response()->json([
             'data' => [
@@ -153,10 +158,7 @@ class CardController extends Controller
 
     public function assignCustomer(Request $request, Card $card)
     {
-        $businessId = $request->user()?->business_id ?? $request->input('business_id');
-        if ($businessId && $card->business_id !== $businessId) {
-            return response()->json(['message' => 'غير مسموح بإدارة هذه البطاقة'], 403);
-        }
+        $this->ensureBusinessAccess($request, $card);
 
         $validated = $request->validate([
             'customer_id' => ['nullable', 'exists:customers,id'],
@@ -167,10 +169,6 @@ class CardController extends Controller
             'issue_date' => ['nullable', 'date'],
             'expiry_date' => ['nullable', 'date', 'after_or_equal:issue_date'],
         ]);
-
-        if ($card->business_id !== ($request->user()?->business_id ?? $card->business_id)) {
-            return response()->json(['message' => 'البطاقة لا تتبع نشاطك التجاري'], 403);
-        }
 
         if (! empty($validated['customer_id'])) {
             $customer = Customer::where('business_id', $card->business_id)
@@ -204,8 +202,7 @@ class CardController extends Controller
         );
 
         $cardCode = $assignment->card_code ?: CardCodeGenerator::make();
-        $qrPayload = sprintf(
-            '%s|%s|%s',
+        $qrPayload = $this->qrPayloadService->generate(
             $customer->name,
             $request->user()?->name ?? $card->creator?->name ?? 'Merchant',
             $cardCode
@@ -262,6 +259,7 @@ class CardController extends Controller
         ]);
 
         $card = Card::findOrFail($id);
+        $this->ensureBusinessAccess($request, $card);
         if (! $request->exists('settings')) {
             unset($validated['settings']);
         }
@@ -276,6 +274,7 @@ class CardController extends Controller
     public function destroy(string $id)
     {
         $card = Card::findOrFail($id);
+        $this->ensureBusinessAccess(request(), $card);
         $card->delete();
 
         return response()->json(['message' => 'تم حذف البطاقة']);
@@ -283,6 +282,7 @@ class CardController extends Controller
 
     public function qr(Card $card)
     {
+        $this->ensureBusinessAccess(request(), $card);
         $url = $this->registrationUrl($card);
         $binary = $this->qrCodeService->generate($url, $card->name);
 
@@ -308,5 +308,23 @@ class CardController extends Controller
     {
         $base = rtrim(config('app.frontend_url', config('app.url')), '/');
         return $base . '/new-customer?card=' . $card->card_code;
+    }
+
+    private function requireBusinessId(Request $request): int
+    {
+        $businessId = $request->user()?->business_id;
+        if (! $businessId) {
+            abort(403, 'غير مصرح');
+        }
+
+        return $businessId;
+    }
+
+    private function ensureBusinessAccess(Request $request, Card $card): void
+    {
+        $businessId = $this->requireBusinessId($request);
+        if ($card->business_id !== $businessId) {
+            abort(403, 'غير مصرح');
+        }
     }
 }

@@ -14,7 +14,7 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        $businessId = $request->user()?->business_id ?? $request->query('business_id');
+        $businessId = $this->requireBusinessId($request);
 
         $products = Product::when($businessId, fn ($q) => $q->where('business_id', $businessId))
             ->orderByDesc('created_at')
@@ -53,7 +53,7 @@ class ProductController extends Controller
             'image_url' => ['nullable', 'string'],
         ]);
 
-        $businessId = $request->user()?->business_id ?? $request->input('business_id');
+        $businessId = $this->requireBusinessId($request);
 
         $product = Product::create([
             ...$validated,
@@ -72,6 +72,7 @@ class ProductController extends Controller
     public function show(string $id)
     {
         $product = Product::findOrFail($id);
+        $this->ensureBusinessAccess(request(), $product);
 
         return response()->json(['data' => $product]);
     }
@@ -82,6 +83,7 @@ class ProductController extends Controller
     public function update(Request $request, string $id)
     {
         $product = Product::findOrFail($id);
+        $this->ensureBusinessAccess($request, $product);
 
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
@@ -106,8 +108,27 @@ class ProductController extends Controller
     public function destroy(string $id)
     {
         $product = Product::findOrFail($id);
+        $this->ensureBusinessAccess(request(), $product);
         $product->delete();
 
         return response()->json(['message' => 'تم حذف المنتج']);
+    }
+
+    private function requireBusinessId(Request $request): int
+    {
+        $businessId = $request->user()?->business_id;
+        if (! $businessId) {
+            abort(403, 'غير مصرح');
+        }
+
+        return $businessId;
+    }
+
+    private function ensureBusinessAccess(Request $request, Product $product): void
+    {
+        $businessId = $this->requireBusinessId($request);
+        if ($product->business_id !== $businessId) {
+            abort(403, 'غير مصرح');
+        }
     }
 }

@@ -8,13 +8,15 @@ use App\Models\CardCustomer;
 use App\Models\Customer;
 use App\Services\CardCodeGenerator;
 use App\Services\GoogleWalletService;
+use App\Services\QrPayloadService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 
 class PublicCardRegistrationController extends Controller
 {
     public function __construct(
-        private readonly GoogleWalletService $googleWalletService
+        private readonly GoogleWalletService $googleWalletService,
+        private readonly QrPayloadService $qrPayloadService
     ) {
     }
 
@@ -70,8 +72,7 @@ class PublicCardRegistrationController extends Controller
         $created = false;
         if ($issued) {
             $cardCodeInstance = $issued->card_code ?: CardCodeGenerator::make();
-            $qrPayload = $issued->qr_payload ?: sprintf(
-                '%s|%s|%s',
+            $qrPayload = $issued->qr_payload ?: $this->qrPayloadService->generate(
                 $customer->name,
                 $card->business?->name ?? 'Merchant',
                 $cardCodeInstance
@@ -91,7 +92,11 @@ class PublicCardRegistrationController extends Controller
         } else {
             $created = true;
             $cardCodeInstance = CardCodeGenerator::make();
-            $qrPayload = sprintf('%s|%s|%s', $customer->name, $card->business?->name ?? 'Merchant', $cardCodeInstance);
+            $qrPayload = $this->qrPayloadService->generate(
+                $customer->name,
+                $card->business?->name ?? 'Merchant',
+                $cardCodeInstance
+            );
 
             $issued = CardCustomer::create([
                 'card_id' => $card->id,

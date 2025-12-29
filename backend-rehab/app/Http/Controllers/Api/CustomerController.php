@@ -14,7 +14,7 @@ class CustomerController extends Controller
      */
     public function index(Request $request)
     {
-        $businessId = $request->user()?->business_id ?? $request->query('business_id');
+        $businessId = $this->requireBusinessId($request);
 
         $customers = Customer::with('cardCustomers.card')
             ->withCount(['cardCustomers as active_cards'])
@@ -58,7 +58,7 @@ class CustomerController extends Controller
             'language' => ['nullable', 'string', 'max:5'],
         ]);
 
-        $businessId = $request->user()?->business_id ?? $request->input('business_id');
+        $businessId = $this->requireBusinessId($request);
 
         $customer = Customer::create([
             ...$validated,
@@ -79,6 +79,7 @@ class CustomerController extends Controller
             'transactions' => fn ($q) => $q->latest()->limit(10),
         ])
             ->findOrFail($id);
+        $this->ensureBusinessAccess(request(), $customer);
 
         return response()->json([
             'data' => [
@@ -132,6 +133,7 @@ class CustomerController extends Controller
     public function update(Request $request, string $id)
     {
         $customer = Customer::findOrFail($id);
+        $this->ensureBusinessAccess($request, $customer);
 
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
@@ -153,8 +155,27 @@ class CustomerController extends Controller
     public function destroy(string $id)
     {
         $customer = Customer::findOrFail($id);
+        $this->ensureBusinessAccess(request(), $customer);
         $customer->delete();
 
         return response()->json(['message' => 'تم حذف العميل']);
+    }
+
+    private function requireBusinessId(Request $request): int
+    {
+        $businessId = $request->user()?->business_id;
+        if (! $businessId) {
+            abort(403, 'غير مصرح');
+        }
+
+        return $businessId;
+    }
+
+    private function ensureBusinessAccess(Request $request, Customer $customer): void
+    {
+        $businessId = $this->requireBusinessId($request);
+        if ($customer->business_id !== $businessId) {
+            abort(403, 'غير مصرح');
+        }
     }
 }

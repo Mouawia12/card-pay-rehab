@@ -167,6 +167,8 @@ export default function ScannerScreen() {
         cardId: parts[2] || raw.substring(0, 20),
         name: parts[0] || t('records.unknown'),
         manager: parts[1] || 'QR Manager',
+        expiresAt: parts[3] ? Number(parts[3]) : undefined,
+        signature: parts[4] || undefined,
       };
     }
 
@@ -218,7 +220,7 @@ export default function ScannerScreen() {
 
     try {
       const parsed = parseScannedData(data);
-      if (!parsed?.cardId) {
+      if (!parsed?.cardId || !parsed.signature || !parsed.expiresAt) {
         throw new Error('invalid_qr');
       }
       const today = new Date().toISOString();
@@ -229,6 +231,8 @@ export default function ScannerScreen() {
         cardId: parsed.cardId,
         name: parsed.name,
         manager: parsed.manager,
+        expiresAt: parsed.expiresAt,
+        signature: parsed.signature,
       });
 
       const successText = t('scanner.scanSuccessMessage') || 'تم تسجيل الزيارة وإضافة النقاط';

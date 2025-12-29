@@ -13,6 +13,8 @@ export interface Record {
   cardId: string;
   name: string;
   manager: string;
+  signature?: string;
+  expiresAt?: number;
 }
 
 interface StorageContextType {
@@ -105,8 +107,14 @@ export const StorageProvider: React.FC<StorageProviderProps> = ({ children }) =>
   };
 
   const addRecord = async (record: Omit<Record, 'id'>) => {
+    if (!token) {
+      throw new Error('unauthorized');
+    }
+
     const payload = {
       card_code: record.cardId,
+      signature: record.signature,
+      expires_at: record.expiresAt,
     };
 
     if (DEBUG_SCAN) {
@@ -119,6 +127,7 @@ export const StorageProvider: React.FC<StorageProviderProps> = ({ children }) =>
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(payload),
     });

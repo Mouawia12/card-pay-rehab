@@ -12,6 +12,7 @@ use App\Services\ApplePassService;
 use App\Services\CardCodeGenerator;
 use App\Services\GoogleWalletService;
 use App\Services\QrCodeService;
+use App\Services\QrPayloadService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
@@ -22,13 +23,14 @@ class CardInstanceController extends Controller
     public function __construct(
         private readonly ApplePassService $applePassService,
         private readonly GoogleWalletService $googleWalletService,
-        private readonly QrCodeService $qrCodeService
+        private readonly QrCodeService $qrCodeService,
+        private readonly QrPayloadService $qrPayloadService
     ) {
     }
 
     public function index(Request $request)
     {
-        $businessId = $request->user()?->business_id ?? $request->query('business_id');
+        $businessId = $this->requireBusinessId($request);
         $search = $request->query('q');
 
         $query = CardCustomer::with(['customer', 'card.business'])
@@ -71,7 +73,7 @@ class CardInstanceController extends Controller
             'notes' => ['nullable', 'string'],
         ]);
 
-        $businessId = $request->user()?->business_id ?? $request->input('business_id');
+        $businessId = $this->requireBusinessId($request);
 
         $template = Card::with('business')
             ->when($businessId, fn ($q) => $q->where('business_id', $businessId))
@@ -83,7 +85,11 @@ class CardInstanceController extends Controller
 
         $customer = $this->resolveCustomer($validated, $template->business_id);
         $cardCode = CardCodeGenerator::make();
-        $qrPayload = sprintf('%s|%s|%s', $customer->name, $template->business?->name ?? 'Merchant', $cardCode);
+        $qrPayload = $this->qrPayloadService->generate(
+            $customer->name,
+            $template->business?->name ?? 'Merchant',
+            $cardCode
+        );
         $issueDate = $validated['issue_date'] ?? now();
 
         $issuedCard = CardCustomer::create([
@@ -367,5 +373,15 @@ class CardInstanceController extends Controller
         if ($card->card?->business_id && $card->card->business_id !== $businessId) {
             abort(403, 'لا يمكنك الوصول إلى هذه البطاقة');
         }
+    }
+
+    private function requireBusinessId(Request $request): int
+    {
+        $businessId = $request->user()?->business_id;
+        if (! $businessId) {
+            abort(403, 'غير مصرح');
+        }
+
+        return $businessId;
     }
 }
